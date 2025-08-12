@@ -7,6 +7,7 @@
     <link rel="icon" href="https://raw.githubusercontent.com/sejafibra/pixpagamentos/refs/heads/main/faviconsf.ico" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
     <style>
         body {
             background-color: #f8f9fa;
@@ -33,10 +34,6 @@
         .verified {
             background-color: #d4edda !important;
         }
-        .table-responsive {
-            max-height: 500px;
-            overflow-y: auto;
-        }
         .login-container {
             max-width: 400px;
             margin: 0 auto;
@@ -44,6 +41,14 @@
         }
         .action-buttons {
             white-space: nowrap;
+        }
+        .btn-export {
+            background-color: #0d6efd;
+            color: white;
+        }
+        .btn-export:hover {
+            background-color: #0b5ed7;
+            color: white;
         }
     </style>
 </head>
@@ -176,46 +181,19 @@
                             </div>
                         </div>
                         <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-8">
-                                    <div class="table-responsive">
-                                        <table class="table table-bordered table-hover" id="month-table">
-                                            <thead class="table-light">
-                                                <tr>
-                                                    <th>ID da Transação</th>
-                                                    <th>Data</th>
-                                                    <th>Valor (R$)</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="month-data">
-                                                <!-- Monthly data will appear here -->
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="card">
-                                        <div class="card-header bg-secondary text-white">
-                                            <h6 class="mb-0">Resumo Diário</h6>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="table-responsive">
-                                                <table class="table table-bordered" id="daily-summary">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Data</th>
-                                                            <th>Total (R$)</th>
-                                                            <th>Ações</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody id="daily-summary-data">
-                                                        <!-- Daily summary will appear here -->
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div class="table-responsive">
+                                <table class="table table-bordered" id="daily-summary">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Total (R$)</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="daily-summary-data">
+                                        <!-- Daily summary will appear here -->
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -276,12 +254,12 @@
         
         // Meses section elements
         const monthSelect = document.getElementById('month-select');
-        const monthDataTable = document.getElementById('month-data');
         const dailySummaryTable = document.getElementById('daily-summary-data');
 
         // Global variables
         let processedData = [];
         let currentUser = null;
+        let monthlyDataCache = {}; // Cache para armazenar dados do mês selecionado
 
         // Auth state listener
         auth.onAuthStateChanged(user => {
@@ -469,6 +447,8 @@
                     const monthYear = `${dateParts[1]}-${dateParts[2]}`;
                     updates[`meses/${monthYear}/${newKey}`] = {
                         idTransacao: item.referencia1,
+                        descricao: item.descricao,
+                        referencia2: item.referencia2,
                         data: item.data,
                         valor: item.valor,
                         valorFormatado: parseFloat(item.valor).toFixed(2).replace('.', ','),
@@ -562,48 +542,39 @@
         function loadMonthData(monthYear) {
             database.ref(`meses/${monthYear}`).orderByChild('data').once('value')
                 .then(snapshot => {
-                    monthDataTable.innerHTML = '';
                     dailySummaryTable.innerHTML = '';
+                    monthlyDataCache = {}; // Limpar cache
                     
                     if (!snapshot.exists()) {
-                        monthDataTable.innerHTML = '<tr><td colspan="3" class="text-center">Nenhum dado encontrado para este mês</td></tr>';
+                        dailySummaryTable.innerHTML = '<tr><td colspan="3" class="text-center">Nenhum dado encontrado para este mês</td></tr>';
                         return;
                     }
                     
                     const dailyTotals = {};
                     const dailyVerified = {}; // Para controlar se todos do dia estão verificados
-                    const dailyItems = {}; // Para armazenar IDs dos itens por dia
+                    const dailyItems = {}; // Para armazenar todos os dados por dia
                     
                     snapshot.forEach(childSnapshot => {
                         const item = childSnapshot.val();
-                        const row = document.createElement('tr');
-                        
-                        // Adiciona classe verified se estiver marcado
-                        if (item.verificado) {
-                            row.classList.add('verified');
-                        }
-                        
-                        row.innerHTML = `
-                            <td>${item.idTransacao}</td>
-                            <td>${item.data}</td>
-                            <td>R$ ${item.valorFormatado}</td>
-                        `;
-                        monthDataTable.appendChild(row);
                         
                         // Calcular totais diários e status de verificação
                         if (!dailyTotals[item.data]) {
                             dailyTotals[item.data] = 0;
                             dailyVerified[item.data] = true; // Assume que está verificado até provar o contrário
-                            dailyItems[item.data] = []; // Array para armazenar IDs dos itens
+                            dailyItems[item.data] = []; // Array para armazenar itens do dia
                         }
+                        
                         dailyTotals[item.data] += parseFloat(item.valor);
-                        dailyItems[item.data].push(childSnapshot.key);
+                        dailyItems[item.data].push(item);
                         
                         // Se algum item do dia não estiver verificado, marca o dia como não verificado
                         if (!item.verificado) {
                             dailyVerified[item.data] = false;
                         }
                     });
+                    
+                    // Armazenar dados no cache para exportação
+                    monthlyDataCache[monthYear] = dailyItems;
                     
                     // Popular resumo diário com botões de ação
                     Object.keys(dailyTotals).sort().forEach(date => {
@@ -623,9 +594,13 @@
                                         data-date="${date}" data-month="${monthYear}">
                                     <i class="bi bi-check-lg"></i> ${isVerified ? 'Conferido' : 'Conferir'}
                                 </button>
-                                <button class="btn btn-sm btn-danger delete-btn" 
-                                        data-date="${date}" data-month="${monthYear}" data-ids="${dailyItems[date].join(',')}">
+                                <button class="btn btn-sm btn-danger delete-btn me-2" 
+                                        data-date="${date}" data-month="${monthYear}">
                                     <i class="bi bi-trash"></i> Excluir
+                                </button>
+                                <button class="btn btn-sm btn-export export-btn" 
+                                        data-date="${date}" data-month="${monthYear}">
+                                    <i class="bi bi-download"></i> Exportar
                                 </button>
                             </td>
                         `;
@@ -647,9 +622,16 @@
                             if (confirm('Tem certeza que deseja excluir TODOS os registros deste dia? Esta ação não pode ser desfeita.')) {
                                 const date = this.getAttribute('data-date');
                                 const month = this.getAttribute('data-month');
-                                const ids = this.getAttribute('data-ids').split(',');
-                                deleteDailyData(ids, month, date);
+                                deleteDailyData(date, month);
                             }
+                        });
+                    });
+                    
+                    document.querySelectorAll('.export-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const date = this.getAttribute('data-date');
+                            const month = this.getAttribute('data-month');
+                            exportDailyData(date, month);
                         });
                     });
                 });
@@ -675,15 +657,19 @@
                 });
         }
 
-        function deleteDailyData(ids, monthYear, date) {
-            // Primeiro deletar da coleção mensal
-            const updates = {};
-            ids.forEach(id => {
-                updates[`meses/${monthYear}/${id}`] = null;
-                updates[`geral/${id}`] = null; // Também deletar do registro geral
-            });
-            
-            database.ref().update(updates)
+        function deleteDailyData(date, monthYear) {
+            // Primeiro encontrar todos os IDs para deletar
+            database.ref(`meses/${monthYear}`).orderByChild('data').equalTo(date).once('value')
+                .then(snapshot => {
+                    const updates = {};
+                    
+                    snapshot.forEach(childSnapshot => {
+                        updates[`meses/${monthYear}/${childSnapshot.key}`] = null;
+                        updates[`geral/${childSnapshot.key}`] = null;
+                    });
+                    
+                    return database.ref().update(updates);
+                })
                 .then(() => {
                     alert('Dados do dia excluídos com sucesso!');
                     loadMonthData(monthYear);
@@ -692,6 +678,32 @@
                 .catch(error => {
                     alert('Erro ao excluir dados: ' + error.message);
                 });
+        }
+
+        function exportDailyData(date, monthYear) {
+            if (!monthlyDataCache[monthYear] || !monthlyDataCache[monthYear][date]) {
+                alert('Dados não encontrados para exportação.');
+                return;
+            }
+            
+            const dailyData = monthlyDataCache[monthYear][date];
+            
+            // Preparar dados para exportação
+            const exportData = dailyData.map(item => ({
+                'ID da Transação': item.idTransacao,
+                'Descrição': item.descricao,
+                'Referência 2': item.referencia2,
+                'Data': item.data,
+                'Valor (R$)': parseFloat(item.valor).toFixed(2)
+            }));
+            
+            // Criar planilha
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Recebimentos");
+            
+            // Exportar arquivo
+            XLSX.writeFile(wb, `Recebimentos_PIX_${date.replace(/\//g, '-')}.xlsx`);
         }
     </script>
 </body>
