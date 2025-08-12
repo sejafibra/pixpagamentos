@@ -178,19 +178,17 @@
                                 <div class="col-md-8">
                                     <div class="table-responsive">
                                         <table class="table table-bordered table-hover" id="month-table">
-                                            <thead class="table-light">
-                                                <tr>
-                                                    <th>ID da Transação</th>
-                                                    <th>Nome do Pagador</th>
-                                                    <th>Data</th>
-                                                    <th>Valor (R$)</th>
-                                                    <th>Ação</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="month-data">
-                                                <!-- Monthly data will appear here -->
-                                            </tbody>
-                                        </table>
+    <thead class="table-light">
+        <tr>
+            <th>ID da Transação</th>  <!-- Coluna 1 -->
+            <th>Nome do Pagador</th>  <!-- Coluna 2 -->
+            <th>Data</th>            <!-- Coluna 3 -->
+            <th>Valor (R$)</th>      <!-- Coluna 4 -->
+            <!-- COLUNA DE AÇÃO FOI REMOVIDA -->
+        </tr>
+    </thead>
+    <tbody id="month-data"></tbody>
+</table>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
@@ -200,16 +198,17 @@
                                         </div>
                                         <div class="card-body">
                                             <table class="table table-bordered" id="daily-summary">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Data</th>
-                                                        <th>Total (R$)</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="daily-summary-data">
-                                                    <!-- Daily summary will appear here -->
-                                                </tbody>
-                                            </table>
+    <thead>
+        <tr>
+            <th>Data</th>
+            <th>Total (R$)</th>
+            <th>Ação</th>
+        </tr>
+    </thead>
+    <tbody id="daily-summary-data">
+        <!-- Daily summary will appear here -->
+    </tbody>
+</table>
                                         </div>
                                     </div>
                                 </div>
@@ -536,78 +535,103 @@
         });
 
         function loadMonthData(monthYear) {
-            database.ref(`meses/${monthYear}`).orderByChild('data').once('value')
-                .then(snapshot => {
-                    monthDataTable.innerHTML = '';
-                    dailySummaryTable.innerHTML = '';
-                    
-                    if (!snapshot.exists()) {
-                        monthDataTable.innerHTML = '<tr><td colspan="5" class="text-center">Nenhum dado encontrado para este mês</td></tr>';
-                        return;
-                    }
-                    
-                    const dailyTotals = {};
-                    
-                    snapshot.forEach(childSnapshot => {
-                        const item = childSnapshot.val();
-                        const row = document.createElement('tr');
-                        if (item.verificado) {
-                            row.classList.add('verified');
-                        }
-                        
-                        row.innerHTML = `
-                            <td>${item.idTransacao}</td>
-                            <td>${item.nomePagador}</td>
-                            <td>${item.data}</td>
-                            <td>R$ ${item.valorFormatado}</td>
-                            <td>
-                                <button class="btn btn-sm ${item.verificado ? 'btn-success' : 'btn-outline-secondary'} verify-btn" 
-                                        data-id="${childSnapshot.key}" data-month="${monthYear}">
-                                    <i class="bi bi-check-lg"></i> ${item.verificado ? 'Conferido' : 'Conferir'}
-                                </button>
-                            </td>
-                        `;
-                        monthDataTable.appendChild(row);
-                        
-                        // Calculate daily totals
-                        if (!dailyTotals[item.data]) {
-                            dailyTotals[item.data] = 0;
-                        }
-                        dailyTotals[item.data] += parseFloat(item.valor);
-                    });
-                    
-                    // Populate daily summary
-                    Object.keys(dailyTotals).sort().forEach(date => {
-                        const total = dailyTotals[date].toFixed(2).replace('.', ',');
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${date}</td>
-                            <td>R$ ${total}</td>
-                        `;
-                        dailySummaryTable.appendChild(row);
-                    });
-                    
-                    // Add event listeners to verify buttons
-                    document.querySelectorAll('.verify-btn').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            const id = this.getAttribute('data-id');
-                            const month = this.getAttribute('data-month');
-                            const isVerified = this.classList.contains('btn-success');
-                            toggleVerification(id, month, !isVerified);
-                        });
-                    });
+    database.ref(`meses/${monthYear}`).orderByChild('data').once('value')
+        .then(snapshot => {
+            monthDataTable.innerHTML = '';
+            dailySummaryTable.innerHTML = '';
+            
+            if (!snapshot.exists()) {
+                monthDataTable.innerHTML = '<tr><td colspan="5" class="text-center">Nenhum dado encontrado para este mês</td></tr>';
+                return;
+            }
+            
+            const dailyTotals = {};
+            const dailyVerified = {}; // Para controlar se todos do dia estão verificados
+            
+            snapshot.forEach(childSnapshot => {
+                const item = childSnapshot.val();
+                const row = document.createElement('tr');
+                
+                // Adiciona classe verified se estiver marcado
+                if (item.verificado) {
+                    row.classList.add('verified');
+                }
+                
+                row.innerHTML = `
+                    <td>${item.idTransacao}</td>
+                    <td>${item.nomePagador}</td>
+                    <td>${item.data}</td>
+                    <td>R$ ${item.valorFormatado}</td>
+                `;
+                monthDataTable.appendChild(row);
+                
+                // Calculate daily totals and verification status
+                if (!dailyTotals[item.data]) {
+                    dailyTotals[item.data] = 0;
+                    dailyVerified[item.data] = true; // Assume que está verificado até provar o contrário
+                }
+                dailyTotals[item.data] += parseFloat(item.valor);
+                
+                // Se algum item do dia não estiver verificado, marca o dia como não verificado
+                if (!item.verificado) {
+                    dailyVerified[item.data] = false;
+                }
+            });
+            
+            // Populate daily summary with verify buttons
+            Object.keys(dailyTotals).sort().forEach(date => {
+                const total = dailyTotals[date].toFixed(2).replace('.', ',');
+                const isVerified = dailyVerified[date];
+                
+                const row = document.createElement('tr');
+                if (isVerified) {
+                    row.classList.add('verified');
+                }
+                
+                row.innerHTML = `
+                    <td>${date}</td>
+                    <td>R$ ${total}</td>
+                    <td>
+                        <button class="btn btn-sm ${isVerified ? 'btn-success' : 'btn-outline-secondary'} verify-btn" 
+                                data-date="${date}" data-month="${monthYear}">
+                            <i class="bi bi-check-lg"></i> ${isVerified ? 'Conferido' : 'Conferir'}
+                        </button>
+                    </td>
+                `;
+                dailySummaryTable.appendChild(row);
+            });
+            
+            // Add event listeners to verify buttons
+            document.querySelectorAll('.verify-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const date = this.getAttribute('data-date');
+                    const month = this.getAttribute('data-month');
+                    const isVerified = this.classList.contains('btn-success');
+                    toggleDailyVerification(date, month, !isVerified);
                 });
-        }
+            });
+        });
+}
 
-        function toggleVerification(id, monthYear, verify) {
-            database.ref(`meses/${monthYear}/${id}/verificado`).set(verify)
-                .then(() => {
-                    loadMonthData(monthYear);
-                })
-                .catch(error => {
-                    alert('Erro ao atualizar status: ' + error.message);
-                });
-        }
+        function toggleDailyVerification(date, monthYear, verify) {
+    // Primeiro encontre todos os itens dessa data
+    database.ref(`meses/${monthYear}`).orderByChild('data').equalTo(date).once('value')
+        .then(snapshot => {
+            const updates = {};
+            
+            snapshot.forEach(childSnapshot => {
+                updates[`meses/${monthYear}/${childSnapshot.key}/verificado`] = verify;
+            });
+            
+            return database.ref().update(updates);
+        })
+        .then(() => {
+            loadMonthData(monthYear);
+        })
+        .catch(error => {
+            alert('Erro ao atualizar status: ' + error.message);
+        });
+}
     </script>
 </body>
 </html>
