@@ -1,345 +1,613 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>PIX Recebimentos — Seja Fibra</title>
-  <style>
-    :root{--bg:#f4f7fb;--card:#fff;--primary:#0b5ed7;--accent:#0ac36a;--muted:#6c757d}
-    body{font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;margin:0;background:var(--bg);color:#111}
-    header{background:linear-gradient(90deg,var(--primary),#ff7a00);color:#fff;padding:16px}
-    .container{max-width:1100px;margin:18px auto;padding:16px}
-    .card{background:var(--card);padding:14px;border-radius:10px;box-shadow:0 6px 18px rgba(10,20,40,.06);margin-bottom:14px}
-    textarea{width:100%;height:160px;font-family:monospace;padding:8px}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    th,td{padding:6px;border:1px solid #e6eef7}
-    .row{display:flex;gap:12px}
-    .col{flex:1}
-    button{background:var(--primary);color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
-    button.secondary{background:#6c757d}
-    .small{font-size:13px;padding:6px}
-    .hidden{display:none}
-    .notice{background:#fffbe6;padding:8px;border-radius:6px;margin-bottom:8px}
-    .sidebar{width:240px}
-    .layout{display:flex;gap:12px}
-    .list-item{padding:8px;border-radius:6px;cursor:pointer}
-    .list-item:hover{background:#f1f7ff}
-    .confirmed{background:#dff7df}
-    .day-row{display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #eee}
-    .flex-center{display:flex;align-items:center;gap:8px}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Recebimentos PIX - Seja Fibra</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .sidebar {
+            min-height: 100vh;
+            background-color: #343a40;
+            color: white;
+        }
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.75);
+        }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .main-content {
+            padding: 20px;
+        }
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .verified {
+            background-color: #d4edda !important;
+        }
+        .table-responsive {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .login-container {
+            max-width: 400px;
+            margin: 0 auto;
+            margin-top: 100px;
+        }
+    </style>
 </head>
 <body>
-  <header>
-    <div class="container">
-      <h1>PIX Recebimentos — Seja Fibra</h1>
-      <div style="font-size:13px">Upload CSV → Ajustar → Registrar em <strong>/Geral</strong> → Agrupar por Ano / Mês → Marcar "Confere" por dia</div>
+    <!-- Login Screen -->
+    <div id="login-screen" class="container login-container">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Login - Gestão PIX</h4>
+            </div>
+            <div class="card-body">
+                <form id="login-form">
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Senha</label>
+                        <input type="password" class="form-control" id="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Entrar</button>
+                </form>
+            </div>
+        </div>
     </div>
-  </header>
 
-  <main class="container layout">
-    <aside class="sidebar card">
-      <h3>Autenticação</h3>
-      <div id="authBox">
-        <input id="email" placeholder="email" class="small" style="width:100%;margin-bottom:6px" />
-        <input id="password" type="password" placeholder="senha" class="small" style="width:100%;margin-bottom:6px" />
-        <div style="display:flex;gap:8px"><button id="btnLogin">Entrar</button><button id="btnSignOut" class="secondary hidden">Sair</button></div>
-        <div id="authMsg" style="margin-top:8px;color:var(--muted);font-size:13px"></div>
-      </div>
+    <!-- Main App (hidden until login) -->
+    <div id="app-container" class="container-fluid" style="display: none;">
+        <div class="row">
+            <div class="col-md-2 sidebar p-0">
+                <div class="p-3">
+                    <h5 class="text-center mb-4">Seja Fibra</h5>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#" id="nav-upload">
+                                <i class="bi bi-upload me-2"></i>Upload CSV
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" id="nav-geral">
+                                <i class="bi bi-list-check me-2"></i>Registro Geral
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" id="nav-meses">
+                                <i class="bi bi-calendar-month me-2"></i>Por Mês
+                            </a>
+                        </li>
+                        <li class="nav-item mt-4">
+                            <a class="nav-link text-danger" href="#" id="nav-logout">
+                                <i class="bi bi-box-arrow-left me-2"></i>Sair
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-10 main-content">
+                <div id="upload-section">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Upload de Relatório CSV</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="csv-file" class="form-label">Selecione o arquivo CSV</label>
+                                <input class="form-control" type="file" id="csv-file" accept=".csv">
+                            </div>
+                            <button id="process-csv" class="btn btn-primary">Processar CSV</button>
+                            
+                            <div class="mt-4" id="processed-data-container" style="display: none;">
+                                <h6>Dados Processados</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-hover" id="processed-table">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Descrição</th>
+                                                <th>Referência 1</th>
+                                                <th>Referência 2</th>
+                                                <th>Nome do Cliente</th>
+                                                <th>Data</th>
+                                                <th>Valor</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="processed-data">
+                                            <!-- Processed data will appear here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <button id="register-data" class="btn btn-success mt-3">Registrar no Firebase</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-      <div id="yearsBox" class="hidden" style="margin-top:12px">
-        <h4>Pastas (Ano / Mês)</h4>
-        <div id="yearsList"></div>
-      </div>
+                <div id="geral-section" style="display: none;">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Registro Geral</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover" id="geral-table">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Descrição</th>
+                                            <th>Referência 1</th>
+                                            <th>Referência 2</th>
+                                            <th>Nome do Cliente</th>
+                                            <th>Data</th>
+                                            <th>Valor</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="geral-data">
+                                        <!-- Data from Firebase will appear here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-      <div style="margin-top:12px;font-size:12px;color:#666">Regras do Realtime DB: somente usuários autorizados podem ler/gravar.</div>
-    </aside>
-
-    <section style="flex:1">
-      <div id="uicard" class="card">
-        <h3>1) Cole ou envie o arquivo CSV</h3>
-        <div class="notice">Cole os dados (linha de cabeçalho + linhas) ou arraste um arquivo CSV. O parser aceita separador TAB ou vírgula.</div>
-        <input type="file" id="fileInput" accept=".csv" />
-        <div style="margin-top:8px"><textarea id="pasteArea" placeholder="Ou cole o conteúdo do CSV aqui"></textarea></div>
-        <div style="margin-top:8px"><button id="btnAdjust">Ajustar Relatório</button> <button id="btnClear" class="secondary">Limpar</button></div>
-      </div>
-
-      <div id="adjustedCard" class="card hidden">
-        <h3>2) Relatório Ajustado</h3>
-        <div style="margin-bottom:8px">Serão mantidas as colunas: Descrição | Referência 1 | Referência 2 | Referência 3 | Data | Valor</div>
-        <div style="margin-bottom:8px"><button id="btnRegister">Registrar (gravar em /Geral)</button> <button id="btnCreateMonth" class="secondary">Criar/Atualizar mês selecionado</button> <button id="btnCopy" class="secondary">Copiar para Excel</button></div>
-        <div style="overflow:auto;max-height:300px">
-          <table id="tableAdjusted">
-            <thead><tr><th>#</th><th>Descrição</th><th>Ref1</th><th>Ref2</th><th>Ref3</th><th>Data</th><th>Valor</th></tr></thead>
-            <tbody></tbody>
-          </table>
+                <div id="meses-section" style="display: none;">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Recebimentos por Mês</h5>
+                                <div>
+                                    <select class="form-select form-select-sm" id="month-select" style="width: 150px;">
+                                        <!-- Months will be populated here -->
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered table-hover" id="month-table">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>ID da Transação</th>
+                                                    <th>Nome do Pagador</th>
+                                                    <th>Data</th>
+                                                    <th>Valor (R$)</th>
+                                                    <th>Ação</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="month-data">
+                                                <!-- Monthly data will appear here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card">
+                                        <div class="card-header bg-secondary text-white">
+                                            <h6 class="mb-0">Resumo Diário</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <table class="table table-bordered" id="daily-summary">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Data</th>
+                                                        <th>Total (R$)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="daily-summary-data">
+                                                    <!-- Daily summary will appear here -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
+    </div>
 
-      <div id="monthView" class="card hidden">
-        <h3>3) Visualizar Mês — <span id="monthTitle"></span></h3>
-        <div id="monthContent"></div>
-      </div>
+    <!-- Firebase and other JS -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+    
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBy3lW3KdZZjXuY6Mf2noJyt3hqAwcGak8",
+            authDomain: "pix-recebimento.firebaseapp.com",
+            projectId: "pix-recebimento",
+            storageBucket: "pix-recebimento.appspot.com",
+            messagingSenderId: "244724309479",
+            appId: "1:244724309479:web:c4d9a25c2213325535b142",
+            databaseURL: "https://pix-recebimento-default-rtdb.firebaseio.com/"
+        };
 
-      <div id="geralView" class="card hidden">
-        <h3>4) Visualizar GERAL (transações)</h3>
-        <div style="overflow:auto;max-height:240px">
-          <table id="tableGeral">
-            <thead><tr><th>#</th><th>Chave</th><th>Descrição</th><th>Data</th><th>Valor</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
 
-    </section>
-  </main>
+        // DOM Elements
+        const loginScreen = document.getElementById('login-screen');
+        const appContainer = document.getElementById('app-container');
+        const loginForm = document.getElementById('login-form');
+        const logoutBtn = document.getElementById('nav-logout');
+        
+        // Navigation
+        const navUpload = document.getElementById('nav-upload');
+        const navGeral = document.getElementById('nav-geral');
+        const navMeses = document.getElementById('nav-meses');
+        
+        // Sections
+        const uploadSection = document.getElementById('upload-section');
+        const geralSection = document.getElementById('geral-section');
+        const mesesSection = document.getElementById('meses-section');
+        
+        // Upload CSV elements
+        const csvFileInput = document.getElementById('csv-file');
+        const processCsvBtn = document.getElementById('process-csv');
+        const processedDataContainer = document.getElementById('processed-data-container');
+        const processedDataTable = document.getElementById('processed-data');
+        const registerDataBtn = document.getElementById('register-data');
+        
+        // Geral section elements
+        const geralDataTable = document.getElementById('geral-data');
+        
+        // Meses section elements
+        const monthSelect = document.getElementById('month-select');
+        const monthDataTable = document.getElementById('month-data');
+        const dailySummaryTable = document.getElementById('daily-summary-data');
 
-  <!-- Firebase SDK -->
-  <script type="module">
-    // --------------- CONFIGURAÇÃO DO SEU FIREBASE ---------------
-    const firebaseConfig = {
-      apiKey: "AIzaSyBy3lW3KdZZjXuY6Mf2noJyt3hqAwcGak8",
-      authDomain: "pix-recebimento.firebaseapp.com",
-      databaseURL: "https://pix-recebimento-default-rtdb.firebaseio.com/",
-      projectId: "pix-recebimento",
-      storageBucket: "pix-recebimento.firebasestorage.app",
-      messagingSenderId: "244724309479",
-      appId: "1:244724309479:web:c4d9a25c2213325535b142"
-    };
-    // -----------------------------------------------------------
+        // Global variables
+        let processedData = [];
+        let currentUser = null;
 
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
-    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
-    import { getDatabase, ref, push, set, get, child, update } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js';
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getDatabase(app);
-
-    // --- DOM ---
-    const emailEl = document.getElementById('email');
-    const passEl = document.getElementById('password');
-    const btnLogin = document.getElementById('btnLogin');
-    const btnSignOut = document.getElementById('btnSignOut');
-    const authMsg = document.getElementById('authMsg');
-    const yearsBox = document.getElementById('yearsBox');
-    const yearsList = document.getElementById('yearsList');
-
-    const fileInput = document.getElementById('fileInput');
-    const pasteArea = document.getElementById('pasteArea');
-    const btnAdjust = document.getElementById('btnAdjust');
-    const btnClear = document.getElementById('btnClear');
-    const adjustedCard = document.getElementById('adjustedCard');
-    const tableAdjusted = document.querySelector('#tableAdjusted tbody');
-    const btnRegister = document.getElementById('btnRegister');
-    const btnCopy = document.getElementById('btnCopy');
-    const btnCreateMonth = document.getElementById('btnCreateMonth');
-
-    const monthView = document.getElementById('monthView');
-    const monthTitle = document.getElementById('monthTitle');
-    const monthContent = document.getElementById('monthContent');
-
-    const geralView = document.getElementById('geralView');
-    const tableGeral = document.querySelector('#tableGeral tbody');
-
-    let adjustedRows = [];
-
-    // --- Auth handlers ---
-    btnLogin.addEventListener('click', async ()=>{
-      const email = emailEl.value.trim();
-      const password = passEl.value;
-      if(!email||!password){ authMsg.textContent = 'Informe email e senha.'; return; }
-      try{ await signInWithEmailAndPassword(auth,email,password); }
-      catch(err){ authMsg.textContent = 'Erro: '+err.message; }
-    });
-    btnSignOut.addEventListener('click', ()=>signOut(auth));
-
-    onAuthStateChanged(auth, user=>{
-      if(user){
-        authMsg.textContent = 'Logado: '+user.email;
-        document.getElementById('btnSignOut').classList.remove('hidden');
-        loadYears();
-        loadGeralPreview();
-      } else {
-        authMsg.textContent = 'Não autenticado.';
-        document.getElementById('btnSignOut').classList.add('hidden');
-        yearsBox.classList.add('hidden');
-        geralView.classList.add('hidden');
-      }
-    });
-
-    // --- File / paste handling ---
-    fileInput.addEventListener('change', e=>{
-      const f = e.target.files[0];
-      if(!f) return;
-      const reader = new FileReader();
-      reader.onload = function(ev){ pasteArea.value = ev.target.result; };
-      reader.readAsText(f,'utf-8');
-    });
-
-    function detectSep(text){ if(text.includes('	')) return '\t'; return ','; }
-    function parseCSV(text){
-      const sep = detectSep(text);
-      const lines = text.split(/\r?\n/).filter(l=>l.trim().length>0);
-      return lines.map(l=>l.split(sep).map(c=>c.trim()));
-    }
-    function toISO(v){ if(!v) return null; const m = v.match(/(\d{1,2})\D(\d{1,2})\D(\d{4})/); if(m){ const d=m[1].padStart(2,'0'), mm=m[2].padStart(2,'0'), yyyy=m[3]; return `${yyyy}-${mm}-${d}`;} const m2=v.match(/(\d{4})-(\d{1,2})-(\d{1,2})/); if(m2){ return `${m2[1]}-${m2[2].padStart(2,'0')}-${m2[3].padStart(2,'0')}`;} const dt = new Date(v); if(!isNaN(dt)) return dt.toISOString().slice(0,10); return null; }
-    function parseNumber(v){ if(v==null||v==='') return null; const s = String(v).replace(/\./g,'').replace(',','.').replace(/[^0-9.\-]/g,''); const n = parseFloat(s); return isNaN(n)?null:n; }
-
-    btnAdjust.addEventListener('click', ()=>{
-      const text = pasteArea.value;
-      if(!text.trim()){ alert('Cole ou carregue o CSV primeiro.'); return; }
-      const rows = parseCSV(text);
-      if(rows.length<2){ alert('CSV sem dados.'); return; }
-      tableAdjusted.innerHTML=''; adjustedRows = [];
-      for(let i=1;i<rows.length;i++){
-        const r = rows[i];
-        const descricao = r[0]||'';
-        const referencia1 = r[1]||'';
-        const referencia2 = r[2]||'';
-        // tentativa: se existirem colunas extras, use r[3] como referencia3, mas se r[3] for nomeCliente (como antes), ainda aceita
-        const referencia3 = r[4]||r[3]||'';
-        const dataRaw = r[6]||r[5]||''; // tolerância
-        const valorRaw = r[7]||r[6]||r[5]||'';
-        if(descricao.toLowerCase().includes('recebimento')){
-          const dataISO = toISO(dataRaw);
-          const valor = parseNumber(valorRaw);
-          adjustedRows.push({descricao,referencia1,referencia2,referencia3,dataRaw,dataISO,valor});
-        }
-      }
-      if(adjustedRows.length===0){ alert('Nenhum recebimento encontrado.'); return; }
-      adjustedRows.forEach((row,idx)=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${idx+1}</td><td>${escapeHtml(row.descricao)}</td><td>${escapeHtml(row.referencia1)}</td><td>${escapeHtml(row.referencia2)}</td><td>${escapeHtml(row.referencia3)}</td><td>${row.dataISO||escapeHtml(row.dataRaw)}</td><td>${row.valor==null?'':row.valor.toFixed(2)}</td>`;
-        tableAdjusted.appendChild(tr);
-      });
-      adjustedCard.classList.remove('hidden');
-    });
-
-    btnClear.addEventListener('click', ()=>{ pasteArea.value=''; tableAdjusted.innerHTML=''; adjustedCard.classList.add('hidden'); adjustedRows=[]; });
-
-    function escapeHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-    // --- Registrar para /Geral ---
-    btnRegister.addEventListener('click', async ()=>{
-      if(adjustedRows.length===0){ alert('Nada para registrar.'); return; }
-      if(!confirm(`Confirma gravar ${adjustedRows.length} registro(s) em /Geral ?`)) return;
-      try{
-        for(const r of adjustedRows){
-          const payload = {
-            descricao: r.descricao || '',
-            referencia1: r.referencia1 || '',
-            referencia2: r.referencia2 || '',
-            referencia3: r.referencia3 || '',
-            data: r.dataISO || r.dataRaw || null,
-            valor: r.valor==null?null:parseFloat((r.valor).toFixed(2)),
-            createdAt: new Date().toISOString()
-          };
-          await push(ref(db,'Geral'), payload);
-        }
-        alert('Registros salvos em /Geral');
-        // atualiza visão
-        loadYears(); loadGeralPreview();
-      }catch(err){ alert('Erro ao gravar: '+err.message); }
-    });
-
-    // --- Cria/atualiza mês (agrega por dia) ---
-    btnCreateMonth.addEventListener('click', async ()=>{
-      const month = prompt('Informe mês no formato YYYY-MM (ex: 2025-08)');
-      if(!month||!/^^\d{4}-\d{2}$/.test(month)){ alert('Formato inválido.'); return; }
-      try{
-        const gSnap = await get(ref(db,'Geral'));
-        if(!gSnap.exists()){ alert('Geral vazio.'); return; }
-        const all = gSnap.val();
-        const days = {}; // dd => {date,total,tx: [keys]}
-        Object.keys(all).forEach(k=>{
-          const it = all[k];
-          const d = it.data || null;
-          if(!d) return;
-          if(!d.startsWith(month)) return; // inclui apenas do mês
-          const day = d.slice(8,10);
-          if(!days[day]) days[day] = {date:d,total:0,tx:[]};
-          const v = parseNumber(it.valor);
-          days[day].total += (v||0);
-          days[day].tx.push(k);
+        // Auth state listener
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                const email = user.email;
+                if (email === 'financeiro@sejafibra.net' || email === 'bioranss@gmail.com') {
+                    currentUser = user;
+                    loginScreen.style.display = 'none';
+                    appContainer.style.display = 'block';
+                    showSection('upload');
+                    loadGeralData();
+                    populateMonthSelect();
+                } else {
+                    auth.signOut();
+                    alert('Acesso não autorizado. Use um email válido.');
+                }
+            } else {
+                loginScreen.style.display = 'block';
+                appContainer.style.display = 'none';
+            }
         });
-        // gravar em /meses/YYYY-MM/days/DD
-        const monthRef = ref(db,`meses/${month}/days`);
-        for(const dd of Object.keys(days)){
-          const node = { date: days[dd].date, total: parseFloat(days[dd].total.toFixed(2)), confirmed: false, tx: days[dd].tx };
-          await set(child(monthRef,dd), node);
+
+        // Login form
+        loginForm.addEventListener('submit', e => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            auth.signInWithEmailAndPassword(email, password)
+                .catch(error => {
+                    alert('Erro no login: ' + error.message);
+                });
+        });
+
+        // Logout
+        logoutBtn.addEventListener('click', () => {
+            auth.signOut();
+        });
+
+        // Navigation
+        navUpload.addEventListener('click', () => showSection('upload'));
+        navGeral.addEventListener('click', () => {
+            showSection('geral');
+            loadGeralData();
+        });
+        navMeses.addEventListener('click', () => {
+            showSection('meses');
+            populateMonthSelect();
+        });
+
+        function showSection(section) {
+            uploadSection.style.display = 'none';
+            geralSection.style.display = 'none';
+            mesesSection.style.display = 'none';
+            
+            if (section === 'upload') uploadSection.style.display = 'block';
+            if (section === 'geral') geralSection.style.display = 'block';
+            if (section === 'meses') mesesSection.style.display = 'block';
         }
-        alert('Mês atualizado em /meses/'+month);
-        loadYears();
-      }catch(err){ alert('Erro: '+err.message); }
-    });
 
-    // --- Load years / months from /meses ---
-    async function loadYears(){
-      yearsList.innerHTML='';
-      const snap = await get(ref(db,'meses'));
-      if(!snap.exists()){ yearsBox.classList.remove('hidden'); yearsList.innerHTML = '<div style="color:#666">Nenhum mês criado ainda. Use "Criar/Atualizar mês".</div>'; return; }
-      const all = snap.val();
-      yearsBox.classList.remove('hidden');
-      // collect by year
-      const groups = {};
-      Object.keys(all).forEach(k=>{ const [y,m]=k.split('-'); if(!groups[y]) groups[y]=[]; groups[y].push(k); });
-      Object.keys(groups).sort().reverse().forEach(year=>{
-        const yDiv = document.createElement('div');
-        yDiv.innerHTML = `<strong>${year}</strong>`;
-        yearsList.appendChild(yDiv);
-        groups[year].sort().forEach(monthKey=>{
-          const mBtn = document.createElement('div');
-          mBtn.className = 'list-item';
-          mBtn.textContent = monthKey;
-          mBtn.addEventListener('click', ()=>{ openMonth(monthKey); });
-          yearsList.appendChild(mBtn);
+        // Process CSV
+        processCsvBtn.addEventListener('click', () => {
+            const file = csvFileInput.files[0];
+            if (!file) {
+                alert('Selecione um arquivo CSV primeiro.');
+                return;
+            }
+            
+            Papa.parse(file, {
+                complete: function(results) {
+                    processCsvData(results.data);
+                },
+                header: false,
+                skipEmptyLines: true
+            });
         });
-      });
-    }
 
-    // --- Open month view ---
-    async function openMonth(monthKey){
-      monthTitle.textContent = monthKey;
-      monthContent.innerHTML = '<div>Carregando...</div>';
-      monthView.classList.remove('hidden');
-      const snap = await get(ref(db,`meses/${monthKey}/days`));
-      if(!snap.exists()){ monthContent.innerHTML = '<div>Este mês não possui dias (crie o mês com "Criar/Atualizar mês").</div>'; return; }
-      const days = snap.val();
-      const keys = Object.keys(days).sort((a,b)=>a-b);
-      monthContent.innerHTML = keys.map(k=>{
-        const it = days[k];
-        const conf = it.confirmed? 'confirmed' : '';
-        return `<div class=\"day-row ${conf}\" data-day=\"${k}\"><div><strong>${k} - ${it.date}</strong></div><div class=\"flex-center\"><div>R$ ${Number(it.total).toFixed(2)}</div><button class=\"small btnConfere\" data-day=\"${k}\">${it.confirmed? 'Desmarcar':'Confere'}</button></div></div>`;
-      }).join('');
-      // attach handlers
-      document.querySelectorAll('.btnConfere').forEach(btn=>{
-        btn.addEventListener('click', async (ev)=>{
-          const d = btn.getAttribute('data-day');
-          const path = `meses/${monthKey}/days/${d}`;
-          const nodeSnap = await get(ref(db,path));
-          if(!nodeSnap.exists()) return; const node = nodeSnap.val();
-          const newVal = !node.confirmed;
-          await update(ref(db,path),{ confirmed: newVal });
-          // update UI
-          openMonth(monthKey);
+        function processCsvData(data) {
+            processedData = [];
+            
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                const descricao = row[0] || ''; // Coluna A: Descrição
+                const referencia1 = row[1] || ''; // Coluna B: Referência 1
+                const referencia2 = row[2] || ''; // Coluna C: Referência 2
+                const nomeCliente = row[3] || ''; // Coluna D: Nome do cliente (Creditado)
+                const dataStr = row[6] || ''; // Coluna G: Data
+                let valor = row[7] || ''; // Coluna H: Valor
+                
+                // Verificar se a descrição começa com "Recebimento"
+                if (descricao.trim().toLowerCase().includes('recebimento')) {
+                    // Processar data (remover hora se existir)
+                    let dataFormatada = dataStr.split(' ')[0];
+                    
+                    // Processar valor (remover zeros à esquerda se for string)
+                    if (typeof valor === 'string') {
+                        valor = valor.replace(/^0+/, '');
+                    }
+                    
+                    processedData.push({
+                        descricao,
+                        referencia1,
+                        referencia2,
+                        nomeCliente,
+                        data: dataFormatada,
+                        valor
+                    });
+                }
+            }
+            
+            displayProcessedData();
+        }
+
+        function displayProcessedData() {
+            processedDataTable.innerHTML = '';
+            
+            if (processedData.length === 0) {
+                processedDataContainer.style.display = 'none';
+                alert('Nenhum dado de recebimento PIX encontrado no arquivo.');
+                return;
+            }
+            
+            processedData.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.descricao}</td>
+                    <td>${item.referencia1}</td>
+                    <td>${item.referencia2}</td>
+                    <td>${item.nomeCliente}</td>
+                    <td>${item.data}</td>
+                    <td>${item.valor}</td>
+                `;
+                processedDataTable.appendChild(row);
+            });
+            
+            processedDataContainer.style.display = 'block';
+        }
+
+        // Register data to Firebase
+        registerDataBtn.addEventListener('click', () => {
+            if (processedData.length === 0) {
+                alert('Nenhum dado para registrar.');
+                return;
+            }
+            
+            const geralRef = database.ref('geral');
+            const updates = {};
+            
+            processedData.forEach(item => {
+                const newKey = geralRef.push().key;
+                updates[`geral/${newKey}`] = {
+                    descricao: item.descricao,
+                    referencia1: item.referencia1,
+                    referencia2: item.referencia2,
+                    nomeCliente: item.nomeCliente,
+                    data: item.data,
+                    valor: item.valor,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                // Also add to monthly collection
+                const dateParts = item.data.split('/');
+                const monthYear = `${dateParts[1]}-${dateParts[2]}`;
+                updates[`meses/${monthYear}/${newKey}`] = {
+                    idTransacao: item.referencia1,
+                    nomePagador: item.nomeCliente,
+                    data: item.data,
+                    valor: item.valor,
+                    valorFormatado: parseFloat(item.valor).toFixed(2).replace('.', ','),
+                    verificado: false
+                };
+            });
+            
+            database.ref().update(updates)
+                .then(() => {
+                    alert('Dados registrados com sucesso!');
+                    processedData = [];
+                    processedDataContainer.style.display = 'none';
+                    csvFileInput.value = '';
+                })
+                .catch(error => {
+                    alert('Erro ao registrar dados: ' + error.message);
+                });
         });
-      });
-    }
 
-    // --- Preview Geral ---
-    async function loadGeralPreview(){
-      geralView.classList.remove('hidden');
-      tableGeral.innerHTML='';
-      const snap = await get(ref(db,'Geral'));
-      if(!snap.exists()){ tableGeral.innerHTML = '<tr><td colspan="5">Sem dados</td></tr>'; return; }
-      const all = snap.val();
-      const rows = Object.keys(all).map((k,idx)=>({key:k,desc:all[k].descricao||'',date:all[k].data||'',valor:parseNumber(all[k].valor)||0}));
-      rows.forEach((r,idx)=>{
-        const tr = document.createElement('tr'); tr.innerHTML = `<td>${idx+1}</td><td>${r.key}</td><td>${escapeHtml(r.desc)}</td><td>${r.date}</td><td>${r.valor.toFixed(2)}</td>`; tableGeral.appendChild(tr);
-      });
-    }
+        // Load Geral data
+        function loadGeralData() {
+            database.ref('geral').orderByChild('timestamp').once('value')
+                .then(snapshot => {
+                    geralDataTable.innerHTML = '';
+                    
+                    if (!snapshot.exists()) {
+                        geralDataTable.innerHTML = '<tr><td colspan="6" class="text-center">Nenhum dado encontrado</td></tr>';
+                        return;
+                    }
+                    
+                    snapshot.forEach(childSnapshot => {
+                        const item = childSnapshot.val();
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${item.descricao}</td>
+                            <td>${item.referencia1}</td>
+                            <td>${item.referencia2}</td>
+                            <td>${item.nomeCliente}</td>
+                            <td>${item.data}</td>
+                            <td>R$ ${parseFloat(item.valor).toFixed(2).replace('.', ',')}</td>
+                        `;
+                        geralDataTable.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    alert('Erro ao carregar dados gerais: ' + error.message);
+                });
+        }
 
-  </script>
+        // Populate month select
+        function populateMonthSelect() {
+            database.ref('meses').once('value')
+                .then(snapshot => {
+                    monthSelect.innerHTML = '<option value="">Selecione um mês</option>';
+                    
+                    if (!snapshot.exists()) {
+                        return;
+                    }
+                    
+                    const months = [];
+                    snapshot.forEach(childSnapshot => {
+                        months.push(childSnapshot.key);
+                    });
+                    
+                    // Sort months (MM-YYYY) in descending order
+                    months.sort((a, b) => {
+                        const [aMonth, aYear] = a.split('-').map(Number);
+                        const [bMonth, bYear] = b.split('-').map(Number);
+                        return bYear - aYear || bMonth - aMonth;
+                    });
+                    
+                    months.forEach(month => {
+                        const [monthNum, year] = month.split('-');
+                        const monthName = new Date(year, monthNum - 1, 1).toLocaleString('pt-BR', { month: 'long' });
+                        const option = document.createElement('option');
+                        option.value = month;
+                        option.textContent = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${year}`;
+                        monthSelect.appendChild(option);
+                    });
+                });
+        }
+
+        // Load month data when selected
+        monthSelect.addEventListener('change', () => {
+            const selectedMonth = monthSelect.value;
+            if (!selectedMonth) return;
+            
+            loadMonthData(selectedMonth);
+        });
+
+        function loadMonthData(monthYear) {
+            database.ref(`meses/${monthYear}`).orderByChild('data').once('value')
+                .then(snapshot => {
+                    monthDataTable.innerHTML = '';
+                    dailySummaryTable.innerHTML = '';
+                    
+                    if (!snapshot.exists()) {
+                        monthDataTable.innerHTML = '<tr><td colspan="5" class="text-center">Nenhum dado encontrado para este mês</td></tr>';
+                        return;
+                    }
+                    
+                    const dailyTotals = {};
+                    
+                    snapshot.forEach(childSnapshot => {
+                        const item = childSnapshot.val();
+                        const row = document.createElement('tr');
+                        if (item.verificado) {
+                            row.classList.add('verified');
+                        }
+                        
+                        row.innerHTML = `
+                            <td>${item.idTransacao}</td>
+                            <td>${item.nomePagador}</td>
+                            <td>${item.data}</td>
+                            <td>R$ ${item.valorFormatado}</td>
+                            <td>
+                                <button class="btn btn-sm ${item.verificado ? 'btn-success' : 'btn-outline-secondary'} verify-btn" 
+                                        data-id="${childSnapshot.key}" data-month="${monthYear}">
+                                    <i class="bi bi-check-lg"></i> ${item.verificado ? 'Conferido' : 'Conferir'}
+                                </button>
+                            </td>
+                        `;
+                        monthDataTable.appendChild(row);
+                        
+                        // Calculate daily totals
+                        if (!dailyTotals[item.data]) {
+                            dailyTotals[item.data] = 0;
+                        }
+                        dailyTotals[item.data] += parseFloat(item.valor);
+                    });
+                    
+                    // Populate daily summary
+                    Object.keys(dailyTotals).sort().forEach(date => {
+                        const total = dailyTotals[date].toFixed(2).replace('.', ',');
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${date}</td>
+                            <td>R$ ${total}</td>
+                        `;
+                        dailySummaryTable.appendChild(row);
+                    });
+                    
+                    // Add event listeners to verify buttons
+                    document.querySelectorAll('.verify-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const id = this.getAttribute('data-id');
+                            const month = this.getAttribute('data-month');
+                            const isVerified = this.classList.contains('btn-success');
+                            toggleVerification(id, month, !isVerified);
+                        });
+                    });
+                });
+        }
+
+        function toggleVerification(id, monthYear, verify) {
+            database.ref(`meses/${monthYear}/${id}/verificado`).set(verify)
+                .then(() => {
+                    loadMonthData(monthYear);
+                })
+                .catch(error => {
+                    alert('Erro ao atualizar status: ' + error.message);
+                });
+        }
+    </script>
 </body>
 </html>
