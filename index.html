@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PIX Recebimentos — Seja Fibra</title>
+  <style>
+    :root{--bg:#f4f7fb;--card:#fff;--primary:#0b5ed7;--accent:#0ac36a;--muted:#6c757d}
+    body{font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;margin:0;background:var(--bg);color:#111}
+    header{background:linear-gradient(90deg,var(--primary),#ff7a00);color:#fff;padding:16px}
+    .container{max-width:1100px;margin:18px auto;padding:16px}
+    .card{background:var(--card);padding:14px;border-radius:10px;box-shadow:0 6px 18px rgba(10,20,40,.06);margin-bottom:14px}
+    textarea{width:100%;height:160px;font-family:monospace;padding:8px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:6px;border:1px solid #e6eef7}
+    .row{display:flex;gap:12px}
+    .col{flex:1}
+    button{background:var(--primary);color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+    button.secondary{background:#6c757d}
+    .small{font-size:13px;padding:6px}
+    .hidden{display:none}
+    .notice{background:#fffbe6;padding:8px;border-radius:6px;margin-bottom:8px}
+    .sidebar{width:240px}
+    .layout{display:flex;gap:12px}
+    .list-item{padding:8px;border-radius:6px;cursor:pointer}
+    .list-item:hover{background:#f1f7ff}
+    .confirmed{background:#dff7df}
+    .day-row{display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #eee}
+    .flex-center{display:flex;align-items:center;gap:8px}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>PIX Recebimentos — Seja Fibra</h1>
+      <div style="font-size:13px">Upload CSV → Ajustar → Registrar em <strong>/Geral</strong> → Agrupar por Ano / Mês → Marcar "Confere" por dia</div>
+    </div>
+  </header>
+
+  <main class="container layout">
+    <aside class="sidebar card">
+      <h3>Autenticação</h3>
+      <div id="authBox">
+        <input id="email" placeholder="email" class="small" style="width:100%;margin-bottom:6px" />
+        <input id="password" type="password" placeholder="senha" class="small" style="width:100%;margin-bottom:6px" />
+        <div style="display:flex;gap:8px"><button id="btnLogin">Entrar</button><button id="btnSignOut" class="secondary hidden">Sair</button></div>
+        <div id="authMsg" style="margin-top:8px;color:var(--muted);font-size:13px"></div>
+      </div>
+
+      <div id="yearsBox" class="hidden" style="margin-top:12px">
+        <h4>Pastas (Ano / Mês)</h4>
+        <div id="yearsList"></div>
+      </div>
+
+      <div style="margin-top:12px;font-size:12px;color:#666">Regras do Realtime DB: somente usuários autorizados podem ler/gravar.</div>
+    </aside>
+
+    <section style="flex:1">
+      <div id="uicard" class="card">
+        <h3>1) Cole ou envie o arquivo CSV</h3>
+        <div class="notice">Cole os dados (linha de cabeçalho + linhas) ou arraste um arquivo CSV. O parser aceita separador TAB ou vírgula.</div>
+        <input type="file" id="fileInput" accept=".csv" />
+        <div style="margin-top:8px"><textarea id="pasteArea" placeholder="Ou cole o conteúdo do CSV aqui"></textarea></div>
+        <div style="margin-top:8px"><button id="btnAdjust">Ajustar Relatório</button> <button id="btnClear" class="secondary">Limpar</button></div>
+      </div>
+
+      <div id="adjustedCard" class="card hidden">
+        <h3>2) Relatório Ajustado</h3>
+        <div style="margin-bottom:8px">Serão mantidas as colunas: Descrição | Referência 1 | Referência 2 | Referência 3 | Data | Valor</div>
+        <div style="margin-bottom:8px"><button id="btnRegister">Registrar (gravar em /Geral)</button> <button id="btnCreateMonth" class="secondary">Criar/Atualizar mês selecionado</button> <button id="btnCopy" class="secondary">Copiar para Excel</button></div>
+        <div style="overflow:auto;max-height:300px">
+          <table id="tableAdjusted">
+            <thead><tr><th>#</th><th>Descrição</th><th>Ref1</th><th>Ref2</th><th>Ref3</th><th>Data</th><th>Valor</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="monthView" class="card hidden">
+        <h3>3) Visualizar Mês — <span id="monthTitle"></span></h3>
+        <div id="monthContent"></div>
+      </div>
+
+      <div id="geralView" class="card hidden">
+        <h3>4) Visualizar GERAL (transações)</h3>
+        <div style="overflow:auto;max-height:240px">
+          <table id="tableGeral">
+            <thead><tr><th>#</th><th>Chave</th><th>Descrição</th><th>Data</th><th>Valor</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    // --------------- CONFIGURAÇÃO DO SEU FIREBASE ---------------
+    const firebaseConfig = {
+      apiKey: "AIzaSyBy3lW3KdZZjXuY6Mf2noJyt3hqAwcGak8",
+      authDomain: "pix-recebimento.firebaseapp.com",
+      databaseURL: "https://pix-recebimento-default-rtdb.firebaseio.com/",
+      projectId: "pix-recebimento",
+      storageBucket: "pix-recebimento.firebasestorage.app",
+      messagingSenderId: "244724309479",
+      appId: "1:244724309479:web:c4d9a25c2213325535b142"
+    };
+    // -----------------------------------------------------------
+
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
+    import { getDatabase, ref, push, set, get, child, update } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js';
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    // --- DOM ---
+    const emailEl = document.getElementById('email');
+    const passEl = document.getElementById('password');
+    const btnLogin = document.getElementById('btnLogin');
+    const btnSignOut = document.getElementById('btnSignOut');
+    const authMsg = document.getElementById('authMsg');
+    const yearsBox = document.getElementById('yearsBox');
+    const yearsList = document.getElementById('yearsList');
+
+    const fileInput = document.getElementById('fileInput');
+    const pasteArea = document.getElementById('pasteArea');
+    const btnAdjust = document.getElementById('btnAdjust');
+    const btnClear = document.getElementById('btnClear');
+    const adjustedCard = document.getElementById('adjustedCard');
+    const tableAdjusted = document.querySelector('#tableAdjusted tbody');
+    const btnRegister = document.getElementById('btnRegister');
+    const btnCopy = document.getElementById('btnCopy');
+    const btnCreateMonth = document.getElementById('btnCreateMonth');
+
+    const monthView = document.getElementById('monthView');
+    const monthTitle = document.getElementById('monthTitle');
+    const monthContent = document.getElementById('monthContent');
+
+    const geralView = document.getElementById('geralView');
+    const tableGeral = document.querySelector('#tableGeral tbody');
+
+    let adjustedRows = [];
+
+    // --- Auth handlers ---
+    btnLogin.addEventListener('click', async ()=>{
+      const email = emailEl.value.trim();
+      const password = passEl.value;
+      if(!email||!password){ authMsg.textContent = 'Informe email e senha.'; return; }
+      try{ await signInWithEmailAndPassword(auth,email,password); }
+      catch(err){ authMsg.textContent = 'Erro: '+err.message; }
+    });
+    btnSignOut.addEventListener('click', ()=>signOut(auth));
+
+    onAuthStateChanged(auth, user=>{
+      if(user){
+        authMsg.textContent = 'Logado: '+user.email;
+        document.getElementById('btnSignOut').classList.remove('hidden');
+        loadYears();
+        loadGeralPreview();
+      } else {
+        authMsg.textContent = 'Não autenticado.';
+        document.getElementById('btnSignOut').classList.add('hidden');
+        yearsBox.classList.add('hidden');
+        geralView.classList.add('hidden');
+      }
+    });
+
+    // --- File / paste handling ---
+    fileInput.addEventListener('change', e=>{
+      const f = e.target.files[0];
+      if(!f) return;
+      const reader = new FileReader();
+      reader.onload = function(ev){ pasteArea.value = ev.target.result; };
+      reader.readAsText(f,'utf-8');
+    });
+
+    function detectSep(text){ if(text.includes('	')) return '\t'; return ','; }
+    function parseCSV(text){
+      const sep = detectSep(text);
+      const lines = text.split(/\r?\n/).filter(l=>l.trim().length>0);
+      return lines.map(l=>l.split(sep).map(c=>c.trim()));
+    }
+    function toISO(v){ if(!v) return null; const m = v.match(/(\d{1,2})\D(\d{1,2})\D(\d{4})/); if(m){ const d=m[1].padStart(2,'0'), mm=m[2].padStart(2,'0'), yyyy=m[3]; return `${yyyy}-${mm}-${d}`;} const m2=v.match(/(\d{4})-(\d{1,2})-(\d{1,2})/); if(m2){ return `${m2[1]}-${m2[2].padStart(2,'0')}-${m2[3].padStart(2,'0')}`;} const dt = new Date(v); if(!isNaN(dt)) return dt.toISOString().slice(0,10); return null; }
+    function parseNumber(v){ if(v==null||v==='') return null; const s = String(v).replace(/\./g,'').replace(',','.').replace(/[^0-9.\-]/g,''); const n = parseFloat(s); return isNaN(n)?null:n; }
+
+    btnAdjust.addEventListener('click', ()=>{
+      const text = pasteArea.value;
+      if(!text.trim()){ alert('Cole ou carregue o CSV primeiro.'); return; }
+      const rows = parseCSV(text);
+      if(rows.length<2){ alert('CSV sem dados.'); return; }
+      tableAdjusted.innerHTML=''; adjustedRows = [];
+      for(let i=1;i<rows.length;i++){
+        const r = rows[i];
+        const descricao = r[0]||'';
+        const referencia1 = r[1]||'';
+        const referencia2 = r[2]||'';
+        // tentativa: se existirem colunas extras, use r[3] como referencia3, mas se r[3] for nomeCliente (como antes), ainda aceita
+        const referencia3 = r[4]||r[3]||'';
+        const dataRaw = r[6]||r[5]||''; // tolerância
+        const valorRaw = r[7]||r[6]||r[5]||'';
+        if(descricao.toLowerCase().includes('recebimento')){
+          const dataISO = toISO(dataRaw);
+          const valor = parseNumber(valorRaw);
+          adjustedRows.push({descricao,referencia1,referencia2,referencia3,dataRaw,dataISO,valor});
+        }
+      }
+      if(adjustedRows.length===0){ alert('Nenhum recebimento encontrado.'); return; }
+      adjustedRows.forEach((row,idx)=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${idx+1}</td><td>${escapeHtml(row.descricao)}</td><td>${escapeHtml(row.referencia1)}</td><td>${escapeHtml(row.referencia2)}</td><td>${escapeHtml(row.referencia3)}</td><td>${row.dataISO||escapeHtml(row.dataRaw)}</td><td>${row.valor==null?'':row.valor.toFixed(2)}</td>`;
+        tableAdjusted.appendChild(tr);
+      });
+      adjustedCard.classList.remove('hidden');
+    });
+
+    btnClear.addEventListener('click', ()=>{ pasteArea.value=''; tableAdjusted.innerHTML=''; adjustedCard.classList.add('hidden'); adjustedRows=[]; });
+
+    function escapeHtml(s){ return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // --- Registrar para /Geral ---
+    btnRegister.addEventListener('click', async ()=>{
+      if(adjustedRows.length===0){ alert('Nada para registrar.'); return; }
+      if(!confirm(`Confirma gravar ${adjustedRows.length} registro(s) em /Geral ?`)) return;
+      try{
+        for(const r of adjustedRows){
+          const payload = {
+            descricao: r.descricao || '',
+            referencia1: r.referencia1 || '',
+            referencia2: r.referencia2 || '',
+            referencia3: r.referencia3 || '',
+            data: r.dataISO || r.dataRaw || null,
+            valor: r.valor==null?null:parseFloat((r.valor).toFixed(2)),
+            createdAt: new Date().toISOString()
+          };
+          await push(ref(db,'Geral'), payload);
+        }
+        alert('Registros salvos em /Geral');
+        // atualiza visão
+        loadYears(); loadGeralPreview();
+      }catch(err){ alert('Erro ao gravar: '+err.message); }
+    });
+
+    // --- Cria/atualiza mês (agrega por dia) ---
+    btnCreateMonth.addEventListener('click', async ()=>{
+      const month = prompt('Informe mês no formato YYYY-MM (ex: 2025-08)');
+      if(!month||!/^^\d{4}-\d{2}$/.test(month)){ alert('Formato inválido.'); return; }
+      try{
+        const gSnap = await get(ref(db,'Geral'));
+        if(!gSnap.exists()){ alert('Geral vazio.'); return; }
+        const all = gSnap.val();
+        const days = {}; // dd => {date,total,tx: [keys]}
+        Object.keys(all).forEach(k=>{
+          const it = all[k];
+          const d = it.data || null;
+          if(!d) return;
+          if(!d.startsWith(month)) return; // inclui apenas do mês
+          const day = d.slice(8,10);
+          if(!days[day]) days[day] = {date:d,total:0,tx:[]};
+          const v = parseNumber(it.valor);
+          days[day].total += (v||0);
+          days[day].tx.push(k);
+        });
+        // gravar em /meses/YYYY-MM/days/DD
+        const monthRef = ref(db,`meses/${month}/days`);
+        for(const dd of Object.keys(days)){
+          const node = { date: days[dd].date, total: parseFloat(days[dd].total.toFixed(2)), confirmed: false, tx: days[dd].tx };
+          await set(child(monthRef,dd), node);
+        }
+        alert('Mês atualizado em /meses/'+month);
+        loadYears();
+      }catch(err){ alert('Erro: '+err.message); }
+    });
+
+    // --- Load years / months from /meses ---
+    async function loadYears(){
+      yearsList.innerHTML='';
+      const snap = await get(ref(db,'meses'));
+      if(!snap.exists()){ yearsBox.classList.remove('hidden'); yearsList.innerHTML = '<div style="color:#666">Nenhum mês criado ainda. Use "Criar/Atualizar mês".</div>'; return; }
+      const all = snap.val();
+      yearsBox.classList.remove('hidden');
+      // collect by year
+      const groups = {};
+      Object.keys(all).forEach(k=>{ const [y,m]=k.split('-'); if(!groups[y]) groups[y]=[]; groups[y].push(k); });
+      Object.keys(groups).sort().reverse().forEach(year=>{
+        const yDiv = document.createElement('div');
+        yDiv.innerHTML = `<strong>${year}</strong>`;
+        yearsList.appendChild(yDiv);
+        groups[year].sort().forEach(monthKey=>{
+          const mBtn = document.createElement('div');
+          mBtn.className = 'list-item';
+          mBtn.textContent = monthKey;
+          mBtn.addEventListener('click', ()=>{ openMonth(monthKey); });
+          yearsList.appendChild(mBtn);
+        });
+      });
+    }
+
+    // --- Open month view ---
+    async function openMonth(monthKey){
+      monthTitle.textContent = monthKey;
+      monthContent.innerHTML = '<div>Carregando...</div>';
+      monthView.classList.remove('hidden');
+      const snap = await get(ref(db,`meses/${monthKey}/days`));
+      if(!snap.exists()){ monthContent.innerHTML = '<div>Este mês não possui dias (crie o mês com "Criar/Atualizar mês").</div>'; return; }
+      const days = snap.val();
+      const keys = Object.keys(days).sort((a,b)=>a-b);
+      monthContent.innerHTML = keys.map(k=>{
+        const it = days[k];
+        const conf = it.confirmed? 'confirmed' : '';
+        return `<div class=\"day-row ${conf}\" data-day=\"${k}\"><div><strong>${k} - ${it.date}</strong></div><div class=\"flex-center\"><div>R$ ${Number(it.total).toFixed(2)}</div><button class=\"small btnConfere\" data-day=\"${k}\">${it.confirmed? 'Desmarcar':'Confere'}</button></div></div>`;
+      }).join('');
+      // attach handlers
+      document.querySelectorAll('.btnConfere').forEach(btn=>{
+        btn.addEventListener('click', async (ev)=>{
+          const d = btn.getAttribute('data-day');
+          const path = `meses/${monthKey}/days/${d}`;
+          const nodeSnap = await get(ref(db,path));
+          if(!nodeSnap.exists()) return; const node = nodeSnap.val();
+          const newVal = !node.confirmed;
+          await update(ref(db,path),{ confirmed: newVal });
+          // update UI
+          openMonth(monthKey);
+        });
+      });
+    }
+
+    // --- Preview Geral ---
+    async function loadGeralPreview(){
+      geralView.classList.remove('hidden');
+      tableGeral.innerHTML='';
+      const snap = await get(ref(db,'Geral'));
+      if(!snap.exists()){ tableGeral.innerHTML = '<tr><td colspan="5">Sem dados</td></tr>'; return; }
+      const all = snap.val();
+      const rows = Object.keys(all).map((k,idx)=>({key:k,desc:all[k].descricao||'',date:all[k].data||'',valor:parseNumber(all[k].valor)||0}));
+      rows.forEach((r,idx)=>{
+        const tr = document.createElement('tr'); tr.innerHTML = `<td>${idx+1}</td><td>${r.key}</td><td>${escapeHtml(r.desc)}</td><td>${r.date}</td><td>${r.valor.toFixed(2)}</td>`; tableGeral.appendChild(tr);
+      });
+    }
+
+  </script>
+</body>
+</html>
