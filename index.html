@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestão de Recebimentos PIX - Seja Fibra</title>
+    <link rel="icon" href="https://raw.githubusercontent.com/sejafibra/pixpagamentos/refs/heads/main/faviconsf.ico" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
@@ -41,6 +42,9 @@
             margin: 0 auto;
             margin-top: 100px;
         }
+        .action-buttons {
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -48,6 +52,7 @@
     <div id="login-screen" class="container login-container">
         <div class="card">
             <div class="card-header bg-primary text-white">
+                <img src="https://sejafibra.net/wp-content/uploads/2023/06/logonovofibra.png" alt="Seja Fibra" class="logo mb-4">
                 <h4 class="mb-0">Login - Gestão PIX</h4>
             </div>
             <div class="card-body">
@@ -118,7 +123,6 @@
                                                 <th>Descrição</th>
                                                 <th>Referência 1</th>
                                                 <th>Referência 2</th>
-                                                <th>Nome do Cliente</th>
                                                 <th>Data</th>
                                                 <th>Valor</th>
                                             </tr>
@@ -147,7 +151,6 @@
                                             <th>Descrição</th>
                                             <th>Referência 1</th>
                                             <th>Referência 2</th>
-                                            <th>Nome do Cliente</th>
                                             <th>Data</th>
                                             <th>Valor</th>
                                         </tr>
@@ -178,17 +181,17 @@
                                 <div class="col-md-8">
                                     <div class="table-responsive">
                                         <table class="table table-bordered table-hover" id="month-table">
-    <thead class="table-light">
-        <tr>
-            <th>ID da Transação</th>  <!-- Coluna 1 -->
-            <th>Nome do Pagador</th>  <!-- Coluna 2 -->
-            <th>Data</th>            <!-- Coluna 3 -->
-            <th>Valor (R$)</th>      <!-- Coluna 4 -->
-            <!-- COLUNA DE AÇÃO FOI REMOVIDA -->
-        </tr>
-    </thead>
-    <tbody id="month-data"></tbody>
-</table>
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>ID da Transação</th>
+                                                    <th>Data</th>
+                                                    <th>Valor (R$)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="month-data">
+                                                <!-- Monthly data will appear here -->
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
@@ -197,18 +200,20 @@
                                             <h6 class="mb-0">Resumo Diário</h6>
                                         </div>
                                         <div class="card-body">
-                                            <table class="table table-bordered" id="daily-summary">
-    <thead>
-        <tr>
-            <th>Data</th>
-            <th>Total (R$)</th>
-            <th>Ação</th>
-        </tr>
-    </thead>
-    <tbody id="daily-summary-data">
-        <!-- Daily summary will appear here -->
-    </tbody>
-</table>
+                                            <div class="table-responsive">
+                                                <table class="table table-bordered" id="daily-summary">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Data</th>
+                                                            <th>Total (R$)</th>
+                                                            <th>Ações</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="daily-summary-data">
+                                                        <!-- Daily summary will appear here -->
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -363,11 +368,10 @@
                 const descricao = row[0] || ''; // Coluna A: Descrição
                 const referencia1 = row[1] || ''; // Coluna B: Referência 1
                 const referencia2 = row[2] || ''; // Coluna C: Referência 2
-                const nomeCliente = row[3] || ''; // Coluna D: Nome do cliente (Creditado)
                 const dataStr = row[6] || ''; // Coluna G: Data
                 let valor = row[7] || ''; // Coluna H: Valor
                 
-                // Verificar se a descrição começa com "Recebimento"
+                // Verificar se a descrição contém "Recebimento"
                 if (descricao.trim().toLowerCase().includes('recebimento')) {
                     // Processar data (remover hora se existir)
                     let dataFormatada = dataStr.split(' ')[0];
@@ -381,7 +385,6 @@
                         descricao,
                         referencia1,
                         referencia2,
-                        nomeCliente,
                         data: dataFormatada,
                         valor
                     });
@@ -406,7 +409,6 @@
                     <td>${item.descricao}</td>
                     <td>${item.referencia1}</td>
                     <td>${item.referencia2}</td>
-                    <td>${item.nomeCliente}</td>
                     <td>${item.data}</td>
                     <td>${item.valor}</td>
                 `;
@@ -417,50 +419,75 @@
         }
 
         // Register data to Firebase
-        registerDataBtn.addEventListener('click', () => {
+        registerDataBtn.addEventListener('click', async () => {
             if (processedData.length === 0) {
                 alert('Nenhum dado para registrar.');
                 return;
             }
             
-            const geralRef = database.ref('geral');
-            const updates = {};
-            
-            processedData.forEach(item => {
-                const newKey = geralRef.push().key;
-                updates[`geral/${newKey}`] = {
-                    descricao: item.descricao,
-                    referencia1: item.referencia1,
-                    referencia2: item.referencia2,
-                    nomeCliente: item.nomeCliente,
-                    data: item.data,
-                    valor: item.valor,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                };
+            try {
+                // Verificar duplicatas primeiro
+                const geralRef = database.ref('geral');
+                const snapshot = await geralRef.once('value');
+                const existingIds = new Set();
                 
-                // Also add to monthly collection
-                const dateParts = item.data.split('/');
-                const monthYear = `${dateParts[1]}-${dateParts[2]}`;
-                updates[`meses/${monthYear}/${newKey}`] = {
-                    idTransacao: item.referencia1,
-                    nomePagador: item.nomeCliente,
-                    data: item.data,
-                    valor: item.valor,
-                    valorFormatado: parseFloat(item.valor).toFixed(2).replace('.', ','),
-                    verificado: false
-                };
-            });
-            
-            database.ref().update(updates)
-                .then(() => {
-                    alert('Dados registrados com sucesso!');
-                    processedData = [];
-                    processedDataContainer.style.display = 'none';
-                    csvFileInput.value = '';
-                })
-                .catch(error => {
-                    alert('Erro ao registrar dados: ' + error.message);
+                if (snapshot.exists()) {
+                    snapshot.forEach(childSnapshot => {
+                        const item = childSnapshot.val();
+                        existingIds.add(item.referencia1);
+                    });
+                }
+                
+                const updates = {};
+                const newItems = [];
+                
+                // Filtrar apenas itens não duplicados
+                processedData.forEach(item => {
+                    if (!existingIds.has(item.referencia1)) {
+                        newItems.push(item);
+                    }
                 });
+                
+                if (newItems.length === 0) {
+                    alert('Todos os itens já existem no sistema. Nada foi registrado.');
+                    return;
+                }
+                
+                // Preparar atualizações para os novos itens
+                newItems.forEach(item => {
+                    const newKey = geralRef.push().key;
+                    updates[`geral/${newKey}`] = {
+                        descricao: item.descricao,
+                        referencia1: item.referencia1,
+                        referencia2: item.referencia2,
+                        data: item.data,
+                        valor: item.valor,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    };
+                    
+                    // Adicionar à coleção mensal
+                    const dateParts = item.data.split('/');
+                    const monthYear = `${dateParts[1]}-${dateParts[2]}`;
+                    updates[`meses/${monthYear}/${newKey}`] = {
+                        idTransacao: item.referencia1,
+                        data: item.data,
+                        valor: item.valor,
+                        valorFormatado: parseFloat(item.valor).toFixed(2).replace('.', ','),
+                        verificado: false
+                    };
+                });
+                
+                // Aplicar todas as atualizações
+                await database.ref().update(updates);
+                
+                alert(`${newItems.length} itens registrados com sucesso! ${processedData.length - newItems.length} itens duplicados foram ignorados.`);
+                processedData = [];
+                processedDataContainer.style.display = 'none';
+                csvFileInput.value = '';
+                
+            } catch (error) {
+                alert('Erro ao registrar dados: ' + error.message);
+            }
         });
 
         // Load Geral data
@@ -470,7 +497,7 @@
                     geralDataTable.innerHTML = '';
                     
                     if (!snapshot.exists()) {
-                        geralDataTable.innerHTML = '<tr><td colspan="6" class="text-center">Nenhum dado encontrado</td></tr>';
+                        geralDataTable.innerHTML = '<tr><td colspan="5" class="text-center">Nenhum dado encontrado</td></tr>';
                         return;
                     }
                     
@@ -481,7 +508,6 @@
                             <td>${item.descricao}</td>
                             <td>${item.referencia1}</td>
                             <td>${item.referencia2}</td>
-                            <td>${item.nomeCliente}</td>
                             <td>${item.data}</td>
                             <td>R$ ${parseFloat(item.valor).toFixed(2).replace('.', ',')}</td>
                         `;
@@ -535,103 +561,139 @@
         });
 
         function loadMonthData(monthYear) {
-    database.ref(`meses/${monthYear}`).orderByChild('data').once('value')
-        .then(snapshot => {
-            monthDataTable.innerHTML = '';
-            dailySummaryTable.innerHTML = '';
-            
-            if (!snapshot.exists()) {
-                monthDataTable.innerHTML = '<tr><td colspan="5" class="text-center">Nenhum dado encontrado para este mês</td></tr>';
-                return;
-            }
-            
-            const dailyTotals = {};
-            const dailyVerified = {}; // Para controlar se todos do dia estão verificados
-            
-            snapshot.forEach(childSnapshot => {
-                const item = childSnapshot.val();
-                const row = document.createElement('tr');
-                
-                // Adiciona classe verified se estiver marcado
-                if (item.verificado) {
-                    row.classList.add('verified');
-                }
-                
-                row.innerHTML = `
-                    <td>${item.idTransacao}</td>
-                    <td>${item.nomePagador}</td>
-                    <td>${item.data}</td>
-                    <td>R$ ${item.valorFormatado}</td>
-                `;
-                monthDataTable.appendChild(row);
-                
-                // Calculate daily totals and verification status
-                if (!dailyTotals[item.data]) {
-                    dailyTotals[item.data] = 0;
-                    dailyVerified[item.data] = true; // Assume que está verificado até provar o contrário
-                }
-                dailyTotals[item.data] += parseFloat(item.valor);
-                
-                // Se algum item do dia não estiver verificado, marca o dia como não verificado
-                if (!item.verificado) {
-                    dailyVerified[item.data] = false;
-                }
-            });
-            
-            // Populate daily summary with verify buttons
-            Object.keys(dailyTotals).sort().forEach(date => {
-                const total = dailyTotals[date].toFixed(2).replace('.', ',');
-                const isVerified = dailyVerified[date];
-                
-                const row = document.createElement('tr');
-                if (isVerified) {
-                    row.classList.add('verified');
-                }
-                
-                row.innerHTML = `
-                    <td>${date}</td>
-                    <td>R$ ${total}</td>
-                    <td>
-                        <button class="btn btn-sm ${isVerified ? 'btn-success' : 'btn-outline-secondary'} verify-btn" 
-                                data-date="${date}" data-month="${monthYear}">
-                            <i class="bi bi-check-lg"></i> ${isVerified ? 'Conferido' : 'Conferir'}
-                        </button>
-                    </td>
-                `;
-                dailySummaryTable.appendChild(row);
-            });
-            
-            // Add event listeners to verify buttons
-            document.querySelectorAll('.verify-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const date = this.getAttribute('data-date');
-                    const month = this.getAttribute('data-month');
-                    const isVerified = this.classList.contains('btn-success');
-                    toggleDailyVerification(date, month, !isVerified);
+            database.ref(`meses/${monthYear}`).orderByChild('data').once('value')
+                .then(snapshot => {
+                    monthDataTable.innerHTML = '';
+                    dailySummaryTable.innerHTML = '';
+                    
+                    if (!snapshot.exists()) {
+                        monthDataTable.innerHTML = '<tr><td colspan="3" class="text-center">Nenhum dado encontrado para este mês</td></tr>';
+                        return;
+                    }
+                    
+                    const dailyTotals = {};
+                    const dailyVerified = {}; // Para controlar se todos do dia estão verificados
+                    const dailyItems = {}; // Para armazenar IDs dos itens por dia
+                    
+                    snapshot.forEach(childSnapshot => {
+                        const item = childSnapshot.val();
+                        const row = document.createElement('tr');
+                        
+                        // Adiciona classe verified se estiver marcado
+                        if (item.verificado) {
+                            row.classList.add('verified');
+                        }
+                        
+                        row.innerHTML = `
+                            <td>${item.idTransacao}</td>
+                            <td>${item.data}</td>
+                            <td>R$ ${item.valorFormatado}</td>
+                        `;
+                        monthDataTable.appendChild(row);
+                        
+                        // Calcular totais diários e status de verificação
+                        if (!dailyTotals[item.data]) {
+                            dailyTotals[item.data] = 0;
+                            dailyVerified[item.data] = true; // Assume que está verificado até provar o contrário
+                            dailyItems[item.data] = []; // Array para armazenar IDs dos itens
+                        }
+                        dailyTotals[item.data] += parseFloat(item.valor);
+                        dailyItems[item.data].push(childSnapshot.key);
+                        
+                        // Se algum item do dia não estiver verificado, marca o dia como não verificado
+                        if (!item.verificado) {
+                            dailyVerified[item.data] = false;
+                        }
+                    });
+                    
+                    // Popular resumo diário com botões de ação
+                    Object.keys(dailyTotals).sort().forEach(date => {
+                        const total = dailyTotals[date].toFixed(2).replace('.', ',');
+                        const isVerified = dailyVerified[date];
+                        
+                        const row = document.createElement('tr');
+                        if (isVerified) {
+                            row.classList.add('verified');
+                        }
+                        
+                        row.innerHTML = `
+                            <td>${date}</td>
+                            <td>R$ ${total}</td>
+                            <td class="action-buttons">
+                                <button class="btn btn-sm ${isVerified ? 'btn-success' : 'btn-outline-secondary'} verify-btn me-2" 
+                                        data-date="${date}" data-month="${monthYear}">
+                                    <i class="bi bi-check-lg"></i> ${isVerified ? 'Conferido' : 'Conferir'}
+                                </button>
+                                <button class="btn btn-sm btn-danger delete-btn" 
+                                        data-date="${date}" data-month="${monthYear}" data-ids="${dailyItems[date].join(',')}">
+                                    <i class="bi bi-trash"></i> Excluir
+                                </button>
+                            </td>
+                        `;
+                        dailySummaryTable.appendChild(row);
+                    });
+                    
+                    // Adicionar listeners para os botões
+                    document.querySelectorAll('.verify-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const date = this.getAttribute('data-date');
+                            const month = this.getAttribute('data-month');
+                            const isVerified = this.classList.contains('btn-success');
+                            toggleDailyVerification(date, month, !isVerified);
+                        });
+                    });
+                    
+                    document.querySelectorAll('.delete-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            if (confirm('Tem certeza que deseja excluir TODOS os registros deste dia? Esta ação não pode ser desfeita.')) {
+                                const date = this.getAttribute('data-date');
+                                const month = this.getAttribute('data-month');
+                                const ids = this.getAttribute('data-ids').split(',');
+                                deleteDailyData(ids, month, date);
+                            }
+                        });
+                    });
                 });
-            });
-        });
-}
+        }
 
         function toggleDailyVerification(date, monthYear, verify) {
-    // Primeiro encontre todos os itens dessa data
-    database.ref(`meses/${monthYear}`).orderByChild('data').equalTo(date).once('value')
-        .then(snapshot => {
+            // Primeiro encontre todos os itens dessa data
+            database.ref(`meses/${monthYear}`).orderByChild('data').equalTo(date).once('value')
+                .then(snapshot => {
+                    const updates = {};
+                    
+                    snapshot.forEach(childSnapshot => {
+                        updates[`meses/${monthYear}/${childSnapshot.key}/verificado`] = verify;
+                    });
+                    
+                    return database.ref().update(updates);
+                })
+                .then(() => {
+                    loadMonthData(monthYear);
+                })
+                .catch(error => {
+                    alert('Erro ao atualizar status: ' + error.message);
+                });
+        }
+
+        function deleteDailyData(ids, monthYear, date) {
+            // Primeiro deletar da coleção mensal
             const updates = {};
-            
-            snapshot.forEach(childSnapshot => {
-                updates[`meses/${monthYear}/${childSnapshot.key}/verificado`] = verify;
+            ids.forEach(id => {
+                updates[`meses/${monthYear}/${id}`] = null;
+                updates[`geral/${id}`] = null; // Também deletar do registro geral
             });
             
-            return database.ref().update(updates);
-        })
-        .then(() => {
-            loadMonthData(monthYear);
-        })
-        .catch(error => {
-            alert('Erro ao atualizar status: ' + error.message);
-        });
-}
+            database.ref().update(updates)
+                .then(() => {
+                    alert('Dados do dia excluídos com sucesso!');
+                    loadMonthData(monthYear);
+                    loadGeralData(); // Atualizar a visualização geral também
+                })
+                .catch(error => {
+                    alert('Erro ao excluir dados: ' + error.message);
+                });
+        }
     </script>
 </body>
 </html>
