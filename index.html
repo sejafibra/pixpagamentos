@@ -7,7 +7,9 @@
     <link rel="icon" href="https://raw.githubusercontent.com/sejafibra/pixpagamentos/refs/heads/main/faviconsf.ico" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <!-- SheetJS (XLS/XLSX) já incluído -->
     <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+
     <style>
         body {
             background-color: #f8f9fa;
@@ -50,6 +52,10 @@
             background-color: #0b5ed7;
             color: white;
         }
+        /* estilos para tabela de diferenças */
+        .ixc { background:#e8f6ff; }
+        .fran { background:#fff7e6; }
+        #log { margin-top:10px; color:#666; font-size:13px; }
     </style>
 </head>
 <body>
@@ -97,6 +103,14 @@
                                 <i class="bi bi-calendar-month me-2"></i>Por Mês
                             </a>
                         </li>
+
+                        <!-- NOVO: Diferença Banco no sidebar -->
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" id="nav-diferenca">
+                                <i class="bi bi-shuffle me-2"></i>Diferença Banco
+                            </a>
+                        </li>
+
                         <li class="nav-item mt-4">
                             <a class="nav-link text-danger" href="#" id="nav-logout">
                                 <i class="bi bi-box-arrow-left me-2"></i>Sair
@@ -106,6 +120,7 @@
                 </div>
             </div>
             <div class="col-md-10 main-content">
+                <!-- Seção Upload (original) -->
                 <div id="upload-section">
                     <div class="card">
                         <div class="card-header bg-primary text-white">
@@ -142,6 +157,7 @@
                     </div>
                 </div>
 
+                <!-- Seção Geral (original) -->
                 <div id="geral-section" style="display: none;">
                     <div class="card">
                         <div class="card-header bg-primary text-white">
@@ -168,6 +184,7 @@
                     </div>
                 </div>
 
+                <!-- Seção Meses (original) -->
                 <div id="meses-section" style="display: none;">
                     <div class="card">
                         <div class="card-header bg-primary text-white">
@@ -198,19 +215,60 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- NOVA SEÇÃO: Diferença Banco (UI id's compatíveis com seu código isolado) -->
+                <div id="diferenca-section" style="display: none;">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Comparar IXC × Francesinha</h5>
+                        </div>
+                        <div class="card-body">
+                            <div>
+                                <label><strong>Upload arquivo IXC (Relatório de Contas a Receber > Contas a Receber):</strong>
+                                  <input id="ixcFile" type="file" accept=".csv,.txt,.xls,.xlsx" class="form-control">
+                                </label>
+                            </div>
+
+                            <div class="mt-3">
+                                <label><strong>Upload arquivo Sicredi (Francesinha):</strong>
+                                  <input id="franFile" type="file" accept=".csv,.txt,.xls,.xlsx" class="form-control">
+                                </label>
+                            </div>
+
+                            <div class="mt-3">
+                                <button id="btnCompare" class="btn btn-primary">ANALISAR</button>
+                                <button id="btnExport" class="btn btn-outline-secondary ms-2" disabled>Exportar Diferenças (CSV)</button>
+                            </div>
+
+                            <div id="log" class="mt-3"></div>
+
+                            <table id="resultTable" aria-live="polite" class="table table-bordered table-hover mt-3">
+                              <thead>
+                                <tr><th>Origem</th><th>Cliente / Pagador</th><th>Valor</th></tr>
+                              </thead>
+                              <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <!-- FIM seções -->
+
             </div>
         </div>
     </div>
 
-    <!-- Firebase and other JS -->
+    <!-- Bibliotecas JS externas (a parte 2 trará o script inline com toda a lógica) -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
-    
+
+    <!-- A seguir (parte 2): script inline com Firebase config, funções existentes e o parser/compare robusto que você enviou -->
     <script>
-        // Firebase configuration
+        // -------------------------
+        // Configuração Firebase
+        // -------------------------
         const firebaseConfig = {
             apiKey: "AIzaSyBy3lW3KdZZjXuY6Mf2noJyt3hqAwcGak8",
             authDomain: "pix-recebimento.firebaseapp.com",
@@ -221,47 +279,58 @@
             databaseURL: "https://pix-recebimento-default-rtdb.firebaseio.com/"
         };
 
-        // Initialize Firebase
+        // Inicializa o Firebase compat (como no seu HTML original)
         const app = firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const database = firebase.database();
 
-        // DOM Elements
+        // -------------------------
+        // Elementos DOM principais
+        // -------------------------
         const loginScreen = document.getElementById('login-screen');
         const appContainer = document.getElementById('app-container');
         const loginForm = document.getElementById('login-form');
         const logoutBtn = document.getElementById('nav-logout');
-        
-        // Navigation
+
         const navUpload = document.getElementById('nav-upload');
         const navGeral = document.getElementById('nav-geral');
         const navMeses = document.getElementById('nav-meses');
-        
-        // Sections
+        const navDiferenca = document.getElementById('nav-diferenca');
+
         const uploadSection = document.getElementById('upload-section');
         const geralSection = document.getElementById('geral-section');
         const mesesSection = document.getElementById('meses-section');
-        
-        // Upload CSV elements
+        const diferencaSection = document.getElementById('diferenca-section');
+
+        // Upload CSV (originais)
         const csvFileInput = document.getElementById('csv-file');
         const processCsvBtn = document.getElementById('process-csv');
         const processedDataContainer = document.getElementById('processed-data-container');
         const processedDataTable = document.getElementById('processed-data');
         const registerDataBtn = document.getElementById('register-data');
-        
-        // Geral section elements
+
+        // Geral / Meses (originais)
         const geralDataTable = document.getElementById('geral-data');
-        
-        // Meses section elements
         const monthSelect = document.getElementById('month-select');
         const dailySummaryTable = document.getElementById('daily-summary-data');
 
-        // Global variables
+        // Diferença Banco (IDs compatíveis com o seu HTML isolado)
+        const ixcFileInput = document.getElementById('ixcFile');
+        const franFileInput = document.getElementById('franFile');
+        const btnCompare = document.getElementById('btnCompare');
+        const btnExport = document.getElementById('btnExport');
+        const logEl = document.getElementById('log');
+        const resultTbody = document.querySelector('#resultTable tbody');
+
+        // Variáveis globais
         let processedData = [];
         let currentUser = null;
-        let monthlyDataCache = {}; // Cache para armazenar dados do mês selecionado
+        let monthlyDataCache = {}; // cache para meses
+        window.__lastComparison = window.__lastComparison || [];
 
-        // Auth state listener
+        // -------------------------
+        // Auth listener (mesma lógica do HTML original)
+        // -------------------------
         auth.onAuthStateChanged(user => {
             if (user) {
                 const email = user.email;
@@ -282,52 +351,46 @@
             }
         });
 
-        // Login form
+        // Login
         loginForm.addEventListener('submit', e => {
             e.preventDefault();
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            
             auth.signInWithEmailAndPassword(email, password)
-                .catch(error => {
-                    alert('Erro no login: ' + error.message);
-                });
+                .catch(error => alert('Erro no login: ' + error.message));
         });
 
         // Logout
-        logoutBtn.addEventListener('click', () => {
-            auth.signOut();
-        });
+        logoutBtn.addEventListener('click', () => auth.signOut());
 
-        // Navigation
+        // Navegação
         navUpload.addEventListener('click', () => showSection('upload'));
-        navGeral.addEventListener('click', () => {
-            showSection('geral');
-            loadGeralData();
-        });
-        navMeses.addEventListener('click', () => {
-            showSection('meses');
-            populateMonthSelect();
-        });
+        navGeral.addEventListener('click', () => { showSection('geral'); loadGeralData(); });
+        navMeses.addEventListener('click', () => { showSection('meses'); populateMonthSelect(); });
+        navDiferenca.addEventListener('click', () => showSection('diferenca'));
 
         function showSection(section) {
             uploadSection.style.display = 'none';
             geralSection.style.display = 'none';
             mesesSection.style.display = 'none';
-            
-            if (section === 'upload') uploadSection.style.display = 'block';
-            if (section === 'geral') geralSection.style.display = 'block';
-            if (section === 'meses') mesesSection.style.display = 'block';
+            diferencaSection.style.display = 'none';
+            navUpload.classList.remove('active');
+            navGeral.classList.remove('active');
+            navMeses.classList.remove('active');
+            navDiferenca.classList.remove('active');
+
+            if (section === 'upload') { uploadSection.style.display = 'block'; navUpload.classList.add('active'); }
+            if (section === 'geral') { geralSection.style.display = 'block'; navGeral.classList.add('active'); }
+            if (section === 'meses') { mesesSection.style.display = 'block'; navMeses.classList.add('active'); }
+            if (section === 'diferenca') { diferencaSection.style.display = 'block'; navDiferenca.classList.add('active'); }
         }
 
-        // Process CSV
+        // -------------------------
+        // Funções originais: process CSV e registrar (mantidas)
+        // -------------------------
         processCsvBtn.addEventListener('click', () => {
             const file = csvFileInput.files[0];
-            if (!file) {
-                alert('Selecione um arquivo CSV primeiro.');
-                return;
-            }
-            
+            if (!file) { alert('Selecione um arquivo CSV primeiro.'); return; }
             Papa.parse(file, {
                 complete: function(results) {
                     processCsvData(results.data);
@@ -339,98 +402,51 @@
 
         function processCsvData(data) {
             processedData = [];
-            
             for (let i = 1; i < data.length; i++) {
                 const row = data[i];
-                const descricao = row[0] || ''; // Coluna A: Descrição
-                const referencia1 = row[1] || ''; // Coluna B: Referência 1
-                const referencia2 = row[2] || ''; // Coluna C: Referência 2
-                const dataStr = row[6] || ''; // Coluna G: Data
-                let valor = row[7] || ''; // Coluna H: Valor
-                
-                // Verificar se a descrição contém "Recebimento"
+                const descricao = row[0] || '';
+                const referencia1 = row[1] || '';
+                const referencia2 = row[2] || '';
+                const dataStr = row[6] || '';
+                let valor = row[7] || '';
                 if (descricao.trim().toLowerCase().includes('recebimento')) {
-                    // Processar data (remover hora se existir)
                     let dataFormatada = dataStr.split(' ')[0];
-                    
-                    // Processar valor (remover zeros à esquerda se for string)
-                    if (typeof valor === 'string') {
-                        valor = valor.replace(/^0+/, '');
-                    }
-                    
-                    processedData.push({
-                        descricao,
-                        referencia1,
-                        referencia2,
-                        data: dataFormatada,
-                        valor
-                    });
+                    if (typeof valor === 'string') valor = valor.replace(/^0+/, '');
+                    processedData.push({ descricao, referencia1, referencia2, data: dataFormatada, valor });
                 }
             }
-            
             displayProcessedData();
         }
 
         function displayProcessedData() {
             processedDataTable.innerHTML = '';
-            
             if (processedData.length === 0) {
                 processedDataContainer.style.display = 'none';
                 alert('Nenhum dado de recebimento PIX encontrado no arquivo.');
                 return;
             }
-            
             processedData.forEach(item => {
                 const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${item.descricao}</td>
-                    <td>${item.referencia1}</td>
-                    <td>${item.referencia2}</td>
-                    <td>${item.data}</td>
-                    <td>${item.valor}</td>
-                `;
+                row.innerHTML = `<td>${item.descricao}</td><td>${item.referencia1}</td><td>${item.referencia2}</td><td>${item.data}</td><td>${item.valor}</td>`;
                 processedDataTable.appendChild(row);
             });
-            
             processedDataContainer.style.display = 'block';
         }
 
-        // Register data to Firebase
         registerDataBtn.addEventListener('click', async () => {
-            if (processedData.length === 0) {
-                alert('Nenhum dado para registrar.');
-                return;
-            }
-            
+            if (processedData.length === 0) { alert('Nenhum dado para registrar.'); return; }
             try {
-                // Verificar duplicatas primeiro
                 const geralRef = database.ref('geral');
                 const snapshot = await geralRef.once('value');
                 const existingIds = new Set();
-                
                 if (snapshot.exists()) {
-                    snapshot.forEach(childSnapshot => {
-                        const item = childSnapshot.val();
-                        existingIds.add(item.referencia1);
-                    });
+                    snapshot.forEach(childSnapshot => existingIds.add(childSnapshot.val().referencia1));
                 }
-                
                 const updates = {};
                 const newItems = [];
-                
-                // Filtrar apenas itens não duplicados
-                processedData.forEach(item => {
-                    if (!existingIds.has(item.referencia1)) {
-                        newItems.push(item);
-                    }
-                });
-                
-                if (newItems.length === 0) {
-                    alert('Todos os itens já existem no sistema. Nada foi registrado.');
-                    return;
-                }
-                
-                // Preparar atualizações para os novos itens
+                processedData.forEach(item => { if (!existingIds.has(item.referencia1)) newItems.push(item); });
+                if (newItems.length === 0) { alert('Todos os itens já existem no sistema. Nada foi registrado.'); return; }
+
                 newItems.forEach(item => {
                     const newKey = geralRef.push().key;
                     updates[`geral/${newKey}`] = {
@@ -441,8 +457,6 @@
                         valor: item.valor,
                         timestamp: firebase.database.ServerValue.TIMESTAMP
                     };
-                    
-                    // Adicionar à coleção mensal
                     const dateParts = item.data.split('/');
                     const monthYear = `${dateParts[1]}-${dateParts[2]}`;
                     updates[`meses/${monthYear}/${newKey}`] = {
@@ -455,50 +469,38 @@
                         verificado: false
                     };
                 });
-                
-                // Aplicar todas as atualizações
+
                 await database.ref().update(updates);
-                
                 alert(`${newItems.length} itens registrados com sucesso! ${processedData.length - newItems.length} itens duplicados foram ignorados.`);
                 processedData = [];
                 processedDataContainer.style.display = 'none';
                 csvFileInput.value = '';
-                
-            } catch (error) {
-                alert('Erro ao registrar dados: ' + error.message);
+            } catch (err) {
+                alert('Erro ao registrar dados: ' + err.message);
             }
         });
 
-        // Load Geral data
+        // -------------------------
+        // Funções originais: carregar gerais/meses
+        // -------------------------
         function loadGeralData() {
             database.ref('geral').orderByChild('timestamp').once('value')
                 .then(snapshot => {
                     geralDataTable.innerHTML = '';
-                    
                     if (!snapshot.exists()) {
                         geralDataTable.innerHTML = '<tr><td colspan="5" class="text-center">Nenhum dado encontrado</td></tr>';
                         return;
                     }
-                    
                     snapshot.forEach(childSnapshot => {
                         const item = childSnapshot.val();
                         const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${item.descricao}</td>
-                            <td>${item.referencia1}</td>
-                            <td>${item.referencia2}</td>
-                            <td>${item.data}</td>
-                            <td>R$ ${parseFloat(item.valor).toFixed(2).replace('.', ',')}</td>
-                        `;
+                        row.innerHTML = `<td>${item.descricao}</td><td>${item.referencia1}</td><td>${item.referencia2}</td><td>${item.data}</td><td>R$ ${parseFloat(item.valor).toFixed(2).replace('.', ',')}</td>`;
                         geralDataTable.appendChild(row);
                     });
                 })
-                .catch(error => {
-                    alert('Erro ao carregar dados gerais: ' + error.message);
-                });
+                .catch(err => alert('Erro ao carregar dados gerais: ' + err.message));
         }
 
-        // Populate month select
         function populateMonthSelect() {
             database.ref('meses').once('value')
                 .then(snapshot => {
@@ -543,152 +545,87 @@
             database.ref(`meses/${monthYear}`).orderByChild('data').once('value')
                 .then(snapshot => {
                     dailySummaryTable.innerHTML = '';
-                    monthlyDataCache = {}; // Limpar cache
-                    
+                    monthlyDataCache = {};
                     if (!snapshot.exists()) {
                         dailySummaryTable.innerHTML = '<tr><td colspan="3" class="text-center">Nenhum dado encontrado para este mês</td></tr>';
                         return;
                     }
-                    
                     const dailyTotals = {};
-                    const dailyVerified = {}; // Para controlar se todos do dia estão verificados
-                    const dailyItems = {}; // Para armazenar todos os dados por dia
-                    
+                    const dailyVerified = {};
+                    const dailyItems = {};
                     snapshot.forEach(childSnapshot => {
                         const item = childSnapshot.val();
-                        
-                        // Calcular totais diários e status de verificação
                         if (!dailyTotals[item.data]) {
                             dailyTotals[item.data] = 0;
-                            dailyVerified[item.data] = true; // Assume que está verificado até provar o contrário
-                            dailyItems[item.data] = []; // Array para armazenar itens do dia
+                            dailyVerified[item.data] = true;
+                            dailyItems[item.data] = [];
                         }
-                        
                         dailyTotals[item.data] += parseFloat(item.valor);
                         dailyItems[item.data].push(item);
-                        
-                        // Se algum item do dia não estiver verificado, marca o dia como não verificado
-                        if (!item.verificado) {
-                            dailyVerified[item.data] = false;
-                        }
+                        if (!item.verificado) dailyVerified[item.data] = false;
                     });
-                    
-                    // Armazenar dados no cache para exportação
                     monthlyDataCache[monthYear] = dailyItems;
-                    
-                    // Popular resumo diário com botões de ação
                     Object.keys(dailyTotals).sort().forEach(date => {
                         const total = dailyTotals[date].toFixed(2).replace('.', ',');
                         const isVerified = dailyVerified[date];
-                        
                         const row = document.createElement('tr');
-                        if (isVerified) {
-                            row.classList.add('verified');
-                        }
-                        
-                        row.innerHTML = `
-                            <td>${date}</td>
-                            <td>R$ ${total}</td>
-                            <td class="action-buttons">
-                                <button class="btn btn-sm ${isVerified ? 'btn-success' : 'btn-outline-secondary'} verify-btn me-2" 
-                                        data-date="${date}" data-month="${monthYear}">
-                                    <i class="bi bi-check-lg"></i> ${isVerified ? 'Conferido' : 'Conferir'}
-                                </button>
-                                <button class="btn btn-sm btn-danger delete-btn me-2" 
-                                        data-date="${date}" data-month="${monthYear}">
-                                    <i class="bi bi-trash"></i> Excluir
-                                </button>
-                                <button class="btn btn-sm btn-export export-btn" 
-                                        data-date="${date}" data-month="${monthYear}">
-                                    <i class="bi bi-download"></i> Exportar
-                                </button>
-                            </td>
-                        `;
+                        if (isVerified) row.classList.add('verified');
+                        row.innerHTML = `<td>${date}</td><td>R$ ${total}</td><td class="action-buttons">
+                            <button class="btn btn-sm ${isVerified ? 'btn-success' : 'btn-outline-secondary'} verify-btn me-2" data-date="${date}" data-month="${monthYear}">
+                                <i class="bi bi-check-lg"></i> ${isVerified ? 'Conferido' : 'Conferir'}
+                            </button>
+                            <button class="btn btn-sm btn-danger delete-btn me-2" data-date="${date}" data-month="${monthYear}">
+                                <i class="bi bi-trash"></i> Excluir
+                            </button>
+                            <button class="btn btn-sm btn-export export-btn" data-date="${date}" data-month="${monthYear}">
+                                <i class="bi bi-download"></i> Exportar
+                            </button>
+                        </td>`;
                         dailySummaryTable.appendChild(row);
                     });
-                    
-                    // Adicionar listeners para os botões
-                    document.querySelectorAll('.verify-btn').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            const date = this.getAttribute('data-date');
-                            const month = this.getAttribute('data-month');
-                            const isVerified = this.classList.contains('btn-success');
-                            toggleDailyVerification(date, month, !isVerified);
-                        });
-                    });
-                    
-                    document.querySelectorAll('.delete-btn').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            if (confirm('Tem certeza que deseja excluir TODOS os registros deste dia? Esta ação não pode ser desfeita.')) {
-                                const date = this.getAttribute('data-date');
-                                const month = this.getAttribute('data-month');
-                                deleteDailyData(date, month);
-                            }
-                        });
-                    });
-                    
-                    document.querySelectorAll('.export-btn').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            const date = this.getAttribute('data-date');
-                            const month = this.getAttribute('data-month');
-                            exportDailyData(date, month);
-                        });
-                    });
+
+                    document.querySelectorAll('.verify-btn').forEach(btn => btn.addEventListener('click', function() {
+                        const date = this.getAttribute('data-date'); const month = this.getAttribute('data-month');
+                        const isVerified = this.classList.contains('btn-success');
+                        toggleDailyVerification(date, month, !isVerified);
+                    }));
+                    document.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', function() {
+                        if (!confirm('Tem certeza que deseja excluir TODOS os registros deste dia? Esta ação não pode ser desfeita.')) return;
+                        const date = this.getAttribute('data-date'); const month = this.getAttribute('data-month');
+                        deleteDailyData(date, month);
+                    }));
+                    document.querySelectorAll('.export-btn').forEach(btn => btn.addEventListener('click', function() {
+                        const date = this.getAttribute('data-date'); const month = this.getAttribute('data-month');
+                        exportDailyData(date, month);
+                    }));
                 });
         }
 
         function toggleDailyVerification(date, monthYear, verify) {
-            // Primeiro encontre todos os itens dessa data
             database.ref(`meses/${monthYear}`).orderByChild('data').equalTo(date).once('value')
                 .then(snapshot => {
                     const updates = {};
-                    
-                    snapshot.forEach(childSnapshot => {
-                        updates[`meses/${monthYear}/${childSnapshot.key}/verificado`] = verify;
-                    });
-                    
+                    snapshot.forEach(childSnapshot => updates[`meses/${monthYear}/${childSnapshot.key}/verificado`] = verify);
                     return database.ref().update(updates);
                 })
-                .then(() => {
-                    loadMonthData(monthYear);
-                })
-                .catch(error => {
-                    alert('Erro ao atualizar status: ' + error.message);
-                });
+                .then(() => loadMonthData(monthYear))
+                .catch(err => alert('Erro ao atualizar status: ' + err.message));
         }
 
         function deleteDailyData(date, monthYear) {
-            // Primeiro encontrar todos os IDs para deletar
             database.ref(`meses/${monthYear}`).orderByChild('data').equalTo(date).once('value')
                 .then(snapshot => {
                     const updates = {};
-                    
-                    snapshot.forEach(childSnapshot => {
-                        updates[`meses/${monthYear}/${childSnapshot.key}`] = null;
-                        updates[`geral/${childSnapshot.key}`] = null;
-                    });
-                    
+                    snapshot.forEach(childSnapshot => { updates[`meses/${monthYear}/${childSnapshot.key}`] = null; updates[`geral/${childSnapshot.key}`] = null; });
                     return database.ref().update(updates);
                 })
-                .then(() => {
-                    alert('Dados do dia excluídos com sucesso!');
-                    loadMonthData(monthYear);
-                    loadGeralData(); // Atualizar a visualização geral também
-                })
-                .catch(error => {
-                    alert('Erro ao excluir dados: ' + error.message);
-                });
+                .then(() => { alert('Dados do dia excluídos com sucesso!'); loadMonthData(monthYear); loadGeralData(); })
+                .catch(err => alert('Erro ao excluir dados: ' + err.message));
         }
 
         function exportDailyData(date, monthYear) {
-            if (!monthlyDataCache[monthYear] || !monthlyDataCache[monthYear][date]) {
-                alert('Dados não encontrados para exportação.');
-                return;
-            }
-            
+            if (!monthlyDataCache[monthYear] || !monthlyDataCache[monthYear][date]) { alert('Dados não encontrados para exportação.'); return; }
             const dailyData = monthlyDataCache[monthYear][date];
-            
-            // Preparar dados para exportação
             const exportData = dailyData.map(item => ({
                 'ID da Transação': item.idTransacao,
                 'Descrição': item.descricao,
@@ -696,15 +633,294 @@
                 'Data': item.data,
                 'Valor (R$)': parseFloat(item.valor).toFixed(2)
             }));
-            
-            // Criar planilha
             const ws = XLSX.utils.json_to_sheet(exportData);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Recebimentos");
-            
-            // Exportar arquivo
             XLSX.writeFile(wb, `Recebimentos_PIX_${date.replace(/\//g, '-')}.xlsx`);
         }
+
+        // -------------------------
+        // PARSER / COMPARADOR ROBUSTO (o seu código isolado, adaptado)
+        // -------------------------
+        function trimOrEmpty(v){ return v===undefined||v===null? "": String(v).trim(); }
+        function onlyDigits(s){ return String(s||"").replace(/\D/g,""); }
+
+        function parseNumberString(s){
+          if(s===undefined || s===null) return NaN;
+          s = String(s).replace(/\u00A0/g,"").replace(/\s+/g,"").replace(/R\$/ig,"").trim();
+          if(s === "") return NaN;
+          if(s.indexOf('.')>-1 && s.indexOf(',')>-1){
+            s = s.replace(/\./g,'').replace(',', '.');
+          } else if(s.indexOf(',')>-1){
+            s = s.replace(',', '.');
+          }
+          s = s.replace(/[^\d\.\-]/g,'');
+          const n = parseFloat(s);
+          return isNaN(n) ? NaN : n;
+        }
+
+        function fmtBR(n){
+          if(n===null || n===undefined || isNaN(n)) return "";
+          return Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function readFileToRows(file){
+          return new Promise((resolve, reject) => {
+            const fName = file.name.toLowerCase();
+            const reader = new FileReader();
+
+            // XLS / XLSX -> usar SheetJS e extrair primeira aba como array de arrays
+            if(fName.endsWith('.xls') || fName.endsWith('.xlsx')){
+              reader.onload = (e) => {
+                try {
+                  const data = new Uint8Array(e.target.result);
+                  const wb = XLSX.read(data, { type: 'array' });
+                  const sheet = wb.Sheets[wb.SheetNames[0]];
+                  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
+                  resolve(rows);
+                } catch(err){
+                  reject(err);
+                }
+              };
+              reader.onerror = (err)=>reject(err);
+              reader.readAsArrayBuffer(file);
+              return;
+            }
+
+            // CSV/TXT -> ler como texto e detectar delimitador (tab, ;, ,)
+            reader.onload = (e) => {
+              try {
+                const txt = e.target.result.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                const lines = txt.split('\n');
+                // encontrar primeira linha não vazia para detectar delimitador
+                let sampleLine = "";
+                for(let L of lines){ if(L.trim()){ sampleLine = L; break; } }
+                let delim = ',';
+                if(sampleLine.indexOf('\t') > -1) delim = '\t';
+                else if(sampleLine.indexOf(';') > -1) delim = ';';
+                else delim = ',';
+
+                const rows = lines.map(line => line.split(delim).map(c => c === undefined ? "" : c.trim()));
+                resolve(rows);
+              } catch(err){ reject(err); }
+            };
+            reader.onerror = err => reject(err);
+            reader.readAsText(file, 'utf-8');
+          });
+        }
+
+        function findHeaderIndex(rows, mustContainPatterns, minMatches=2){
+          for(let i=0;i<rows.length;i++){
+            const row = rows[i].map(c=>String(c||""));
+            let matches = 0;
+            for(const pat of mustContainPatterns){
+              if(row.some(cell => pat.test(String(cell)))) matches++;
+            }
+            if(matches >= minMatches) return i;
+          }
+          return -1;
+        }
+
+        function findColumnIndex(headerRow, patterns){
+          const header = headerRow.map(c=>String(c||""));
+          for(let i=0;i<header.length;i++){
+            const cell = header[i];
+            for(const pat of patterns){
+              if(pat.test(cell)) return i;
+            }
+          }
+          return -1;
+        }
+
+        function parseIXCRows(rows){
+          const headerIdx = findHeaderIndex(rows, [ /ID\s*Rec/i, /Cliente/i ], 2);
+          if (headerIdx === -1) return {error: 'Cabeçalho IXC não encontrado (procuro por "ID Rec" e "Cliente").', data: []};
+
+          const headerRow = rows[headerIdx];
+          const idxIdRec = findColumnIndex(headerRow, [/ID\s*Rec/i, /ID\s*Receb/i, /ID\s*conta/i]);
+          const idxCliente = findColumnIndex(headerRow, [/Cliente/i, /Nome/i]);
+          const idxValBaixa = findColumnIndex(headerRow, [/Val.*Baixa/i, /Val\.*\s*Baixa/i, /Val.*Baixa/i]);
+          const idxValor = findColumnIndex(headerRow, [/^(Valor|Val\.)$/i, /Valor/i, /Val\./i]);
+
+          if(idxIdRec < 0 || idxCliente < 0) {
+            return { error: 'Não foi possível mapear colunas essenciais no IXC (ID Rec ou Cliente).', data: [] };
+          }
+
+          const out = [];
+          for(let r = headerIdx + 1; r < rows.length; r++){
+            const row = rows[r];
+            if(!row) continue;
+            const rawId = trimOrEmpty(row[idxIdRec]);
+            const id = onlyDigits(rawId);
+            if(!id) continue;
+            const cliente = trimOrEmpty(row[idxCliente]);
+            const rawValBaixa = idxValBaixa >= 0 ? trimOrEmpty(row[idxValBaixa]) : (idxValor>=0 ? trimOrEmpty(row[idxValor]) : "");
+            const num = parseNumberString(rawValBaixa);
+            out.push({
+              id,
+              cliente,
+              valNum: isNaN(num) ? null : num,
+              valRaw: rawValBaixa
+            });
+          }
+          return { error: null, data: out };
+        }
+
+        function parseFrancesinhaRows(rows){
+          const headerIdx = findHeaderIndex(rows, [ /Seu\s*°|Seu\s*N|^Seu\b|Seu\s*Nr|Seu\s*N[o°]?/i, /Pagador/i ], 2);
+          if(headerIdx === -1) {
+            const movIdx = rows.findIndex(r => (r||[]).some(c => /Movimentos do dia/i.test(String(c))));
+            if(movIdx >= 0 && movIdx + 1 < rows.length) {
+              for(let tryIdx = movIdx + 1; tryIdx <= movIdx + 4 && tryIdx < rows.length; tryIdx++){
+                if((rows[tryIdx]||[]).some(c => /Seu/i.test(String(c))) && (rows[tryIdx]||[]).some(c => /Pagador/i.test(String(c)))){
+                  const headerRow = rows[tryIdx];
+                  const idxSeu = findColumnIndex(headerRow, [/Seu\s*°|Seu\s*N|^Seu\b|Seu\s*Nr|Seu\s*N[o°]?/i]);
+                  const idxPag = findColumnIndex(headerRow, [/Pagador/i]);
+                  const idxVal = findColumnIndex(headerRow, [/Vlr.*Mov|Vlr.*Movimento|Valor$/i, /Valor/i, /Vlr/i]);
+                  if(idxSeu>=0 && idxPag>=0) {
+                    const out = [];
+                    for(let r = tryIdx + 1; r < rows.length; r++){
+                      const row = rows[r];
+                      if(!row) continue;
+                      const rawSeu = trimOrEmpty(row[idxSeu]);
+                      const seu = onlyDigits(rawSeu);
+                      if(!seu) continue;
+                      const pagador = trimOrEmpty(row[idxPag]);
+                      const rawVal = idxVal>=0 ? trimOrEmpty(row[idxVal]) : "";
+                      const num = parseNumberString(rawVal);
+                      out.push({ id: seu, pagador, valNum: isNaN(num) ? null : num, valRaw: rawVal });
+                    }
+                    return { error: null, data: out };
+                  }
+                }
+              }
+            }
+            return { error: 'Cabeçalho Francesinha não encontrado (procuro por "Seu N°" e "Pagador").', data: [] };
+          }
+
+          const headerRow = rows[headerIdx];
+          const idxSeu = findColumnIndex(headerRow, [/Seu\s*°|Seu\s*N|^Seu\b|Seu\s*Nr|Seu\s*N[o°]?/i]);
+          const idxPag = findColumnIndex(headerRow, [/Pagador/i]);
+          const idxVal = findColumnIndex(headerRow, [/Vlr.*Mov|Vlr.*Movimento|Valor$/i, /Valor/i, /Vlr/i]);
+
+          if(idxSeu < 0 || idxPag < 0){
+            return { error: 'Não foi possível mapear colunas essenciais na Francesinha (Seu N° ou Pagador).', data: [] };
+          }
+
+          const out = [];
+          for(let r = headerIdx + 1; r < rows.length; r++){
+            const row = rows[r];
+            if(!row) continue;
+            const rawSeu = trimOrEmpty(row[idxSeu]);
+            const seu = onlyDigits(rawSeu);
+            if(!seu) continue;
+            const pagador = trimOrEmpty(row[idxPag]);
+            const rawVal = idxVal >= 0 ? trimOrEmpty(row[idxVal]) : "";
+            const num = parseNumberString(rawVal);
+            out.push({ id: seu, pagador, valNum: isNaN(num) ? null : num, valRaw: rawVal });
+          }
+          return { error: null, data: out };
+        }
+
+        // -------------------------
+        // Lógica do botão "ANALISAR" (Comparar)
+        // -------------------------
+        btnCompare.addEventListener('click', async () => {
+          logEl.textContent = "Processando...";
+          resultTbody.innerHTML = "";
+          btnExport.disabled = true;
+          const ixcFile = ixcFileInput.files[0];
+          const franFile = franFileInput.files[0];
+          if(!ixcFile || !franFile){ alert("Selecione ambos os arquivos (IXC e Francesinha)."); logEl.textContent = ""; return; }
+
+          try {
+            const [rowsIXC, rowsFran] = await Promise.all([ readFileToRows(ixcFile), readFileToRows(franFile) ]);
+            const parsedIXC = parseIXCRows(rowsIXC);
+            if(parsedIXC.error){ alert(parsedIXC.error); logEl.textContent = parsedIXC.error; return; }
+            const parsedFran = parseFrancesinhaRows(rowsFran);
+            if(parsedFran.error){ alert(parsedFran.error); logEl.textContent = parsedFran.error; return; }
+
+            const mapIXC = {}; parsedIXC.data.forEach(r => { mapIXC[r.id] = r; });
+            const mapFran = {}; parsedFran.data.forEach(r => { mapFran[r.id] = r; });
+
+            const result = [];
+
+            for(const id in mapIXC){
+              if(!mapFran[id]){
+                const row = mapIXC[id];
+                result.push({
+                  origem: 'IXC',
+                  nome: row.cliente || '',
+                  valorNum: row.valNum,
+                  valorStr: row.valNum !== null ? fmtBR(row.valNum) : (row.valRaw || '')
+                });
+              }
+            }
+            for(const id in mapFran){
+              if(!mapIXC[id]){
+                const row = mapFran[id];
+                result.push({
+                  origem: 'Francesinha',
+                  nome: row.pagador || '',
+                  valorNum: row.valNum,
+                  valorStr: row.valNum !== null ? fmtBR(row.valNum) : (row.valRaw || '')
+                });
+              }
+            }
+
+            resultTbody.innerHTML = "";
+            if(result.length === 0){
+              resultTbody.innerHTML = '<tr><td colspan="3">Nenhuma diferença encontrada</td></tr>';
+              logEl.textContent = 'Nenhuma diferença encontrada.';
+              window.__lastComparison = result;
+              btnExport.disabled = true;
+            } else {
+              for(const r of result){
+                const tr = document.createElement('tr');
+                tr.className = r.origem === 'IXC' ? 'ixc' : 'fran';
+                const cellOrig = `<td>${r.origem}</td>`;
+                const cellName = `<td>${r.nome}</td>`;
+                const cellVal = `<td>${r.valorStr}</td>`;
+                tr.innerHTML = cellOrig + cellName + cellVal;
+                resultTbody.appendChild(tr);
+              }
+              logEl.textContent = `Encontradas ${result.length} diferença(s).`;
+              window.__lastComparison = result;
+              btnExport.disabled = false;
+            }
+
+          } catch(err) {
+            console.error(err);
+            alert("Erro ao processar arquivos. Veja console do navegador para detalhes.");
+            logEl.textContent = "Erro: " + (err && err.message ? err.message : String(err));
+          }
+        });
+
+        // -------------------------
+        // Export CSV (botão Exportar)
+        // -------------------------
+        btnExport.addEventListener('click', () => {
+          const rows = window.__lastComparison || [];
+          if(!rows.length){ alert("Sem resultados para exportar."); return; }
+          let csv = 'Origem;Cliente/Pagador;Valor\n';
+          for(const r of rows){
+            const name = String(r.nome || '').replace(/"/g,'""');
+            csv += `${r.origem};"${name}";${r.valorStr}\n`;
+          }
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'diferencas.csv';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        });
+
+        // -------------------------
+        // Fim do script - marca pronto
+        // -------------------------
     </script>
 </body>
 </html>
