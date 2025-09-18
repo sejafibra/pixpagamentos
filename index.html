@@ -542,75 +542,94 @@
         });
 
         function loadMonthData(monthYear) {
-            database.ref(`meses/${monthYear}`).orderByChild('data').once('value')
-                .then(snapshot => {
-                    dailySummaryTable.innerHTML = '';
-                    monthlyDataCache = {};
-                    if (!snapshot.exists()) {
-                        dailySummaryTable.innerHTML = '<tr><td colspan="3" class="text-center">Nenhum dado encontrado para este mês</td></tr>';
-                        return;
-                    }
-                    const dailyTotals = {};
-                    const dailyVerified = {};
-                    const dailyItems = {};
-                    snapshot.forEach(childSnapshot => {
-                        const item = childSnapshot.val();
-                        if (!dailyTotals[item.data]) {
-                            dailyTotals[item.data] = 0;
-                            dailyVerified[item.data] = true;
-                            dailyItems[item.data] = [];
-                        }
-                        dailyTotals[item.data] += parseFloat(item.valor);
-                        dailyItems[item.data].push(item);
-                        if (!item.verificado) dailyVerified[item.data] = false;
-                    });
-                    monthlyDataCache[monthYear] = dailyItems;
-                    Object.keys(dailyTotals).sort().forEach(date => {
-                        const total = dailyTotals[date].toFixed(2).replace('.', ',');
-                        const isVerified = dailyVerified[date];
-                        const row = document.createElement('tr');
-                        if (isVerified) row.classList.add('verified');
-                        row.innerHTML = `<td>${date}</td><td>R$ ${total}</td><td class="action-buttons">
-                            <button class="btn btn-sm ${isVerified ? 'btn-success' : 'btn-outline-secondary'} verify-btn me-2" data-date="${date}" data-month="${monthYear}">
-                                <i class="bi bi-check-lg"></i> ${isVerified ? 'Conferido' : 'Conferir'}
-                            </button>
-                            <button class="btn btn-sm btn-danger delete-btn me-2" data-date="${date}" data-month="${monthYear}">
-                                <i class="bi bi-trash"></i> Excluir
-                            </button>
-                            <button class="btn btn-sm btn-export export-btn" data-date="${date}" data-month="${monthYear}">
-                                <i class="bi bi-download"></i> Exportar
-                            </button>
-                        </td>`;
-                        dailySummaryTable.appendChild(row);
-                    });
+    database.ref(`meses/${monthYear}`).orderByChild('data').once('value')
+        .then(snapshot => {
+            dailySummaryTable.innerHTML = '';
+            monthlyDataCache = {};
+            if (!snapshot.exists()) {
+                dailySummaryTable.innerHTML = '<tr><td colspan="3" class="text-center">Nenhum dado encontrado para este mês</td></tr>';
+                return;
+            }
+            const dailyTotals = {};
+            const dailyVerified = {};
+            const dailyItems = {};
+            snapshot.forEach(childSnapshot => {
+                const item = childSnapshot.val();
+                if (!dailyTotals[item.data]) {
+                    dailyTotals[item.data] = 0;
+                    dailyVerified[item.data] = true;
+                    dailyItems[item.data] = [];
+                }
+                dailyTotals[item.data] += parseFloat(item.valor);
+                dailyItems[item.data].push(item);
+                if (!item.verificado) dailyVerified[item.data] = false;
+            });
+            monthlyDataCache[monthYear] = dailyItems;
+            Object.keys(dailyTotals).sort().forEach(date => {
+                const total = dailyTotals[date].toFixed(2).replace('.', ',');
+                const isVerified = dailyVerified[date];
+                const row = document.createElement('tr');
+                if (isVerified) row.classList.add('verified');
+                row.innerHTML = `<td>${date}</td><td>R$ ${total}</td><td class="action-buttons">
+                    <button class="btn btn-sm ${isVerified ? 'btn-success' : 'btn-outline-secondary'} verify-btn me-2" data-date="${date}" data-month="${monthYear}">
+                        <i class="bi bi-check-lg"></i> ${isVerified ? 'Conferido' : 'Conferir'}
+                    </button>
+                    <button class="btn btn-sm btn-danger delete-btn me-2" data-date="${date}" data-month="${monthYear}">
+                        <i class="bi bi-trash"></i> Excluir
+                    </button>
+                    <button class="btn btn-sm btn-export export-btn" data-date="${date}" data-month="${monthYear}">
+                        <i class="bi bi-download"></i> Exportar
+                    </button>
+                </td>`;
+                dailySummaryTable.appendChild(row);
+            });
 
-                    document.querySelectorAll('.verify-btn').forEach(btn => btn.addEventListener('click', function() {
-                        const date = this.getAttribute('data-date'); const month = this.getAttribute('data-month');
+            setTimeout(() => {
+                document.querySelectorAll('.verify-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const date = this.getAttribute('data-date'); 
+                        const month = this.getAttribute('data-month');
                         const isVerified = this.classList.contains('btn-success');
                         toggleDailyVerification(date, month, !isVerified);
-                    }));
-                    document.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', function() {
-                        if (!confirm('Tem certeza que deseja excluir TODOS os registros deste dia? Esta ação não pode ser desfeita.')) return;
-                        const date = this.getAttribute('data-date'); const month = this.getAttribute('data-month');
-                        deleteDailyData(date, month);
-                    }));
-                    document.querySelectorAll('.export-btn').forEach(btn => btn.addEventListener('click', function() {
-                        const date = this.getAttribute('data-date'); const month = this.getAttribute('data-month');
-                        exportDailyData(date, month);
-                    }));
+                    });
                 });
-        }
+                
+                document.querySelectorAll('.delete-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        if (!confirm('Tem certeza que deseja excluir TODOS os registros deste dia? Esta ação não pode ser desfeita.')) return;
+                        const date = this.getAttribute('data-date'); 
+                        const month = this.getAttribute('data-month');
+                        deleteDailyData(date, month);
+                    });
+                });
+                
+                document.querySelectorAll('.export-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const date = this.getAttribute('data-date'); 
+                        const month = this.getAttribute('data-month');
+                        exportDailyData(date, month);
+                    });
+                });
+            }, 100);
+        }); // ← ESTE é o único fechamento necessário do .then()
+} // ← ESTE é o fechamento da função loadMonthData
 
-        function toggleDailyVerification(date, monthYear, verify) {
-            database.ref(`meses/${monthYear}`).orderByChild('data').equalTo(date).once('value')
-                .then(snapshot => {
-                    const updates = {};
-                    snapshot.forEach(childSnapshot => updates[`meses/${monthYear}/${childSnapshot.key}/verificado`] = verify);
-                    return database.ref().update(updates);
-                })
-                .then(() => loadMonthData(monthYear))
-                .catch(err => alert('Erro ao atualizar status: ' + err.message));
-        }
+function toggleDailyVerification(date, monthYear, verify) {
+    const monthRef = database.ref(`meses/${monthYear}`);
+    monthRef.once('value')
+        .then(snapshot => {
+            const updates = {};
+            snapshot.forEach(childSnapshot => {
+                const item = childSnapshot.val();
+                if (item.data === date) {
+                    updates[`meses/${monthYear}/${childSnapshot.key}/verificado`] = verify;
+                }
+            });
+            return database.ref().update(updates);
+        })
+        .then(() => loadMonthData(monthYear))
+        .catch(err => alert('Erro ao atualizar status: ' + err.message));
+}
 
         function deleteDailyData(date, monthYear) {
             database.ref(`meses/${monthYear}`).orderByChild('data').equalTo(date).once('value')
